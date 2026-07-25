@@ -94,24 +94,24 @@
             <div class="popup-header">${NOMBRE_CLIENTE}</div>
             
             <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
-              ${estaEnMarcha ? '🟢 EN MARCHA' : '🔴 PARADO'}
+              ${estaEnMarcha ? '🟢 In Funzione' : '🔴 Fermo'}
             </span>
 
             <table class="data-table">
-              <tr><td>Horas de Carga:</td><td>${horasCarga} hs</td></tr>
-              <tr><td>Horas de Vacío:</td><td>${horasVacio} hs</td></tr>
-              <tr><td><strong>Totales Trabajadas:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
+              <tr><td>Horas de Carico:</td><td>${horasCarga} hs</td></tr>
+              <tr><td>Horas de Vuoto:</td><td>${horasVacio} hs</td></tr>
+              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
               <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Seteo Mantenimiento:</td><td>${seteoMantenimiento} hs</td></tr>
-              <tr><td>Cuenta Regresiva:</td><td>${horasRestantes} hs</td></tr>
-              <tr><td>Cantidad de Arranques:</td><td>${cantidadArranques}</td></tr>
+              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento} hs</td></tr>
+              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
+              <tr><td>Avviamenti:</td><td>${cantidadArranques}</td></tr>
             </table>
         `;
 
         if (requiereMantenimiento) {
           popupContent += `
             <div class="alerta-mantenimiento">
-              ⚠️ ¡MANTENIMIENTO REQUERIDO!
+              ⚠️ ¡MANTUTENZIONE RICHIESTA!
             </div>
           `;
         }
