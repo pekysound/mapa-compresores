@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telemetría de Compresores - RMF Magliano Alpi</title>
+  <title>Telemetria Compressori - RMF Magliano Alpi</title>
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -27,7 +27,7 @@
     .status-marcha { background-color: #28a745; }
     .status-parado { background-color: #6c757d; }
     
-    /* Alerta visual de Mantenimiento (LED 2 digital) */
+    /* Alerta visual de Manutenzione */
     .alerta-mantenimiento {
       background-color: #dc3545; color: white;
       padding: 8px; border-radius: 5px;
@@ -82,9 +82,9 @@
         const horasRestantes = parseFloat(data.field4 || 0).toFixed(2);
         const horasTotales = parseFloat(data.field5 || 0).toFixed(2);
         
-        // Estado y arranques (preparados para cuando enviemos field6 y field7)
+        // Estado y arranques (field6 y field7)
         const estadoCod = data.field6 || "1";
-        const estaEnMarcha = (estadoCod === "1" || estadoCod.toLowerCase() === "marcha");
+        const estaEnMarcha = (estadoCod === "1" || estadoCod.toLowerCase() === "marcha" || estadoCod.toLowerCase() === "in funzione");
         const cantidadArranques = data.field7 || "0";
 
         const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
@@ -98,12 +98,12 @@
             </span>
 
             <table class="data-table">
-              <tr><td>Ore Carico:</td><td>${horasCarga} </td></tr>
-              <tr><td>Ore Vuoto:</td><td>${horasVacio} </td></tr>
-              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales} </strong></td></tr>
+              <tr><td>Ore Carico:</td><td>${horasCarga}</td></tr>
+              <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
+              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales}</strong></td></tr>
               <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento} </td></tr>
-              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} </td></tr>
+              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento}</td></tr>
+              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
               <tr><td>Avviamenti:</td><td>${cantidadArranques}</td></tr>
             </table>
         `;
@@ -111,7 +111,7 @@
         if (requiereMantenimiento) {
           popupContent += `
             <div class="alerta-mantenimiento">
-              ⚠️ ¡MANTUTENZIONE RICHIESTA!
+              ⚠️ MANUTENZIONE RICHIESTA!
             </div>
           `;
         }
@@ -120,7 +120,7 @@
         marker.bindPopup(popupContent).openPopup();
 
       } catch (error) {
-        console.error("Error al obtener datos de ThingSpeak:", error);
+        console.error("Errore nel recupero dati da ThingSpeak:", error);
       }
     }
 
