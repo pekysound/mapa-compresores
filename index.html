@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telemetría de Compresores - RMF Magliano Alpi</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    #map { width: 100vw; height: 100vh; }
+
+    /* Estilos del Popup */
+    .popup-card { min-width: 250px; font-size: 13px; line-height: 1.5; }
+    .popup-header {
+      font-size: 16px; font-weight: bold;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 5px; margin-bottom: 8px; color: #333;
+    }
+    .badge {
+      display: inline-block; padding: 3px 8px;
+      border-radius: 12px; font-size: 11px; font-weight: bold;
+      color: white; margin-bottom: 8px;
+    }
+    .status-marcha { background-color: #28a745; }
+    .status-parado { background-color: #6c757d; }
+    
+    /* Alerta visual de Mantenimiento (LED 2 digital) */
+    .alerta-mantenimiento {
+      background-color: #dc3545; color: white;
+      padding: 8px; border-radius: 5px;
+      font-weight: bold; text-align: center;
+      margin-top: 10px;
+      animation: parpadeo 1s infinite alternate;
+    }
+
+    @keyframes parpadeo {
+      from { opacity: 1; }
+      to { opacity: 0.4; }
+    }
+
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .data-table td { padding: 3px 0; }
+    .data-table td:last-child { text-align: right; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // --- CONFIGURACIÓN ---
+    const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
+    const LATITUD = 44.4601;   // Magliano Alpi, Italia
+    const LONGITUD = 7.8016;
+    const CHANNEL_ID = "3425995"; 
+
+    // Inicializar mapa
+    const map = L.map('map').setView([LATITUD, LONGITUD], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
+
+    async function cargarDatosThingSpeak() {
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const horasCarga = parseFloat(data.field1 || 0).toFixed(2);
+        const horasVacio = parseFloat(data.field2 || 0).toFixed(2);
+        const seteoMantenimiento = parseFloat(data.field3 || 1500).toFixed(0);
+        const horasRestantes = parseFloat(data.field4 || 0).toFixed(2);
+        const horasTotales = parseFloat(data.field5 || 0).toFixed(2);
+        
+        // Estado y arranques (preparados para cuando enviemos field6 y field7)
+        const estadoCod = data.field6 || "1";
+        const estaEnMarcha = (estadoCod === "1" || estadoCod.toLowerCase() === "marcha");
+        const cantidadArranques = data.field7 || "0";
+
+        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
+
+        let popupContent = `
+          <div class="popup-card">
+            <div class="popup-header">${NOMBRE_CLIENTE}</div>
+            
+            <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
+              ${estaEnMarcha ? '🟢 EN MARCHA' : '🔴 PARADO'}
+            </span>
+
+            <table class="data-table">
+              <tr><td>Horas de Carga:</td><td>${horasCarga} hs</td></tr>
+              <tr><td>Horas de Vacío:</td><td>${horasVacio} hs</td></tr>
+              <tr><td><strong>Totales Trabajadas:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
+              <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
+              <tr><td>Seteo Mantenimiento:</td><td>${seteoMantenimiento} hs</td></tr>
+              <tr><td>Cuenta Regresiva:</td><td>${horasRestantes} hs</td></tr>
+              <tr><td>Cantidad de Arranques:</td><td>${cantidadArranques}</td></tr>
+            </table>
+        `;
+
+        if (requiereMantenimiento) {
+          popupContent += `
+            <div class="alerta-mantenimiento">
+              ⚠️ ¡MANTENIMIENTO REQUERIDO!
+            </div>
+          `;
+        }
+
+        popupContent += `</div>`;
+        marker.bindPopup(popupContent).openPopup();
+
+      } catch (error) {
+        console.error("Error al obtener datos de ThingSpeak:", error);
+      }
+    }
+
+    cargarDatosThingSpeak();
+    setInterval(cargarDatosThingSpeak, 15000); // Refresca cada 15 segundos
+  </script>
+</body>
+</html>
