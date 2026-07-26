@@ -77,10 +77,10 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Función para garantizar números enteros limpios
+    // Trunca a horas enteras (ej. 0.9 hs pasa a 0 hs hasta completar la 1ª hora)
     function formatEntero(val) {
       if (val === null || val === undefined || val === "") return 0;
-      const n = Math.round(parseFloat(val));
+      const n = Math.floor(parseFloat(val));
       return isNaN(n) ? 0 : n;
     }
 
@@ -95,7 +95,6 @@
 
         const data = json.feeds[0];
 
-        // Todos los campos convertidos a enteros sin decimales:
         const horasCarico      = formatEntero(data.field1);
         const horasVacio       = formatEntero(data.field2);
         const horasProgramadas = formatEntero(data.field3);
@@ -104,7 +103,6 @@
         const enMarcha         = (String(data.field6).trim() === "1");
         const avviamenti       = formatEntero(data.field7);
 
-        // Hora de actualización
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
