@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telemetría de Compresores - RMF Magliano Alpi</title>
+  <title>Telemetria Compressori - RMF Magliano Alpi</title>
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -12,7 +12,7 @@
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     #map { width: 100vw; height: 100vh; }
 
-    /* Estilos del Popup */
+    /* Stili del Popup */
     .popup-card { min-width: 260px; font-size: 13px; line-height: 1.5; }
     .popup-header {
       font-size: 15px; font-weight: bold;
@@ -27,7 +27,7 @@
     .status-marcha { background-color: #28a745; }
     .status-parado { background-color: #6c757d; }
     
-    /* Alerta visual de Mantenimiento */
+    /* Allarme visivo Manutenzione */
     .alerta-mantenimiento {
       background-color: #dc3545; color: white;
       padding: 8px; border-radius: 5px;
@@ -62,13 +62,13 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // --- CONFIGURACIÓN ---
+    // --- CONFIGURAZIONE ---
     const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
     const LATITUD = 44.4601;   // Magliano Alpi, Italia
     const LONGITUD = 7.8016;
     const CHANNEL_ID = "3425995"; 
 
-    // Inicializar mapa
+    // Inizializzare la mappa
     const map = L.map('map').setView([LATITUD, LONGITUD], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -84,44 +84,53 @@
         const response = await fetch(url);
         const data = await response.json();
 
-        // Mapeo correspondiente al ESP32:
-        const horasCarico      = parseFloat(data.field1 || 0).toFixed(1);
-        const horasVacio       = parseFloat(data.field2 || 0).toFixed(1);
-        const horasProgramadas = parseFloat(data.field3 || 0).toFixed(0);
-        const horasRestantes   = parseFloat(data.field4 || 0).toFixed(1);
-        const totalHistorico   = parseFloat(data.field5 || 0).toFixed(1);
+        // Mappatura ESP32 (convertito a numero intero):
+        const horasCarico      = Math.round(parseFloat(data.field1 || 0));
+        const horasVacio       = Math.round(parseFloat(data.field2 || 0));
+        const horasProgramadas = Math.round(parseFloat(data.field3 || 0));
+        const horasRestantes   = Math.round(parseFloat(data.field4 || 0));
+        const totalHistorico   = Math.round(parseFloat(data.field5 || 0));
+        const enMarcha         = data.field6 === "1";
+        const avviamenti       = Math.round(parseFloat(data.field7 || 0));
 
-        // Registro de última actualización
-        let horaUltimoEnvio = "Desconocida";
+        // Registro dell'ultimo aggiornamento
+        let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
+        const requiereMantenimiento = (horasRestantes <= 0);
 
         let popupContent = `
           <div class="popup-card">
             <div class="popup-header">${NOMBRE_CLIENTE}</div>
 
+            <div>
+              <span class="badge ${enMarcha ? 'status-marcha' : 'status-parado'}">
+                ${enMarcha ? 'IN MARCIA' : 'FERMO'}
+              </span>
+            </div>
+
             <table class="data-table">
-              <tr><td>Carico:</td><td>${horasCarico} hs</td></tr>
-              <tr><td>Vuoto:</td><td>${horasVacio} hs</td></tr>
-              <tr><td><strong>Totale Storico:</strong></td><td><strong>${totalHistorico} hs</strong></td></tr>
-              <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Ciclo Programado:</td><td>${horasProgramadas} hs</td></tr>
-              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
+              <tr><td>Ore Carico:</td><td>${horasCarico}</td></tr>
+              <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
+              <tr><td><strong>Ore Totali:</strong></td><td><strong>${totalHistorico}</strong></td></tr>
+              <tr><td>Avviamenti Totali:</td><td>${avviamenti}</td></tr>
+              <tr><td colspan="2"><hr style="border: 0.5px solid #eee; margin: 4px 0;"></td></tr>
+              <tr><td>Ciclo Programmato:</td><td>${horasProgramadas}</td></tr>
+              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
             </table>
 
             <div class="last-packet">
-              Último paquete PLC: <strong>${horaUltimoEnvio}</strong>
+              Ultimo aggiornamento: <strong>${horaUltimoEnvio}</strong>
             </div>
         `;
 
         if (requiereMantenimiento) {
           popupContent += `
             <div class="alerta-mantenimiento">
-              ⚠️ ¡MANTENIMIENTO REQUERIDO!
+              ⚠️ MANUTENZIONE RICHIESTA!
             </div>
           `;
         }
@@ -130,12 +139,12 @@
         marker.bindPopup(popupContent).openPopup();
 
       } catch (error) {
-        console.error("Error al obtener datos de ThingSpeak:", error);
+        console.error("Errore durante il recupero dei dati da ThingSpeak:", error);
       }
     }
 
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Consulta cada 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000); // Aggiorna ogni 15 secondi
   </script>
 </body>
 </html>
