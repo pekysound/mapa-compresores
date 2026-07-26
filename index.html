@@ -13,9 +13,9 @@
     #map { width: 100vw; height: 100vh; }
 
     /* Estilos del Popup */
-    .popup-card { min-width: 250px; font-size: 13px; line-height: 1.5; }
+    .popup-card { min-width: 260px; font-size: 13px; line-height: 1.5; }
     .popup-header {
-      font-size: 16px; font-weight: bold;
+      font-size: 15px; font-weight: bold;
       border-bottom: 2px solid #007bff;
       padding-bottom: 5px; margin-bottom: 8px; color: #333;
     }
@@ -84,47 +84,33 @@
         const response = await fetch(url);
         const data = await response.json();
 
-        // 1. Obtener valores exactos enviados por el ESP32
-        const horasCarga = Math.round(parseFloat(data.field1 || 0));
-        const horasVacio = Math.round(parseFloat(data.field2 || 0));
-        const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
-        
-        // CUENTA REGRESIVA INDEPENDIENTE (Viene directa de field4 del ESP32)
-        const horasRestantes = Math.round(parseFloat(data.field4 || 0));
-        
-        // Suma acumulada de horas totales
-        const horasTotales = horasCarga + horasVacio;
-        
-        // 2. Estado y arranques
-        const estadoCod = data.field6 || "1";
-        const estaEnMarcha = (estadoCod === "1" || String(estadoCod).toLowerCase() === "marcha");
-        const cantidadArranques = Math.round(parseFloat(data.field7 || 0));
+        // Mapeo correspondiente al ESP32:
+        const horasCarico      = parseFloat(data.field1 || 0).toFixed(1);
+        const horasVacio       = parseFloat(data.field2 || 0).toFixed(1);
+        const horasProgramadas = parseFloat(data.field3 || 0).toFixed(0);
+        const horasRestantes   = parseFloat(data.field4 || 0).toFixed(1);
+        const totalHistorico   = parseFloat(data.field5 || 0).toFixed(1);
 
-        // 3. Hora del último envío
+        // Registro de última actualización
         let horaUltimoEnvio = "Desconocida";
         if (data.created_at) {
           const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (horasRestantes <= 0);
+        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
 
         let popupContent = `
           <div class="popup-card">
             <div class="popup-header">${NOMBRE_CLIENTE}</div>
-            
-            <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
-              ${estaEnMarcha ? '🟢 EN MARCHA' : '🔴 PARADO'}
-            </span>
 
             <table class="data-table">
-              <tr><td>Carico:</td><td>${horasCarga} hs</td></tr>
+              <tr><td>Carico:</td><td>${horasCarico} hs</td></tr>
               <tr><td>Vuoto:</td><td>${horasVacio} hs</td></tr>
-              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
+              <tr><td><strong>Totale Storico:</strong></td><td><strong>${totalHistorico} hs</strong></td></tr>
               <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento} hs</td></tr>
+              <tr><td>Ciclo Programado:</td><td>${horasProgramadas} hs</td></tr>
               <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
-              <tr><td>Avviamento:</td><td>${cantidadArranques}</td></tr>
             </table>
 
             <div class="last-packet">
@@ -149,10 +135,7 @@
     }
 
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Refresca cada 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000); // Consulta cada 15 segundos
   </script>
 </body>
 </html>
-```eof
-
-Copia y pega este código en tu `index.html` de GitHub. Con esto, la cuenta regresiva del mantenimiento ya vuelve a ser 100% independiente de las horas totales.
