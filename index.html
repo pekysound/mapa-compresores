@@ -36,6 +36,13 @@
       animation: parpadeo 1s infinite alternate;
     }
 
+    .error-box {
+      background-color: #f8d7da; color: #721c24;
+      padding: 8px; border-radius: 5px;
+      font-size: 11px; margin-top: 8px;
+      border: 1px solid #f5c6cb;
+    }
+
     @keyframes parpadeo {
       from { opacity: 1; }
       to { opacity: 0.4; }
@@ -75,27 +82,35 @@
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Crear marcador e inicializar un popup vacío
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
     const popup = L.popup({ autoClose: false, closeOnClick: false });
     marker.bindPopup(popup);
 
-    // Función auxiliar para parsear enteros de forma segura
     function parseEnteroSeguro(valor) {
-      if (valor === null || valor === undefined) return 0;
+      if (valor === null || valor === undefined || valor === "") return 0;
       const num = Number(valor);
       return isNaN(num) ? 0 : Math.round(num);
     }
 
     async function cargarDatosThingSpeak() {
-      // Fuerza a no guardar en caché añadiendo timestamp dinámico y cabeceras
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?cb=${new Date().getTime()}`;
+      // Forzar lectura fresca sin caché
+      const timestamp = new Date().getTime();
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_=${timestamp}`;
 
       try {
         const response = await fetch(url, { cache: "no-store" });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} (Verificar que el Canal en ThingSpeak sea PÚBLICO)`);
+        }
+
         const data = await response.json();
 
-        // Mappatura ESP32 asegurando enteros limpios
+        if (!data || Object.keys(data).length === 0 || data === -1) {
+          throw new Error("Canal sin datos registrados aún o privado.");
+        }
+
+        // Mappatura ESP32
         const horasCarico      = parseEnteroSeguro(data.field1);
         const horasVacio       = parseEnteroSeguro(data.field2);
         const horasProgramadas = parseEnteroSeguro(data.field3);
@@ -104,7 +119,7 @@
         const enMarcha         = String(data.field6).trim() === "1";
         const avviamenti       = parseEnteroSeguro(data.field7);
 
-        // Registro dell'ultimo aggiornamento
+        // Ultimo aggiornamento
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
@@ -147,24 +162,34 @@
         }
 
         popupContent += `</div>`;
-        
-        // Actualizar directamente el contenido del popup existente
         popup.setContent(popupContent);
 
-        // Si es la primera carga o está cerrado, lo abre
         if (!marker.isPopupOpen()) {
           marker.openPopup();
         }
 
       } catch (error) {
-        console.error("Errore durante il recupero dei dati da ThingSpeak:", error);
+        console.error("Error ThingSpeak:", error);
+        
+        // Muestra el error exacto en la tarjeta para saber qué pasa
+        let errorContent = `
+          <div class="popup-card">
+            <div class="popup-header">${NOMBRE_CLIENTE}</div>
+            <div class="error-box">
+              ⚠️ <strong>Error de lectura:</strong><br>
+              ${error.message}
+            </div>
+            <div class="last-packet">Reintentando lectura cada 15s...</div>
+          </div>
+        `;
+        popup.setContent(errorContent);
+        if (!marker.isPopupOpen()) {
+          marker.openPopup();
+        }
       }
     }
 
-    // Carga inicial
     cargarDatosThingSpeak();
-
-    // Actualiza cada 15 segundos
     setInterval(cargarDatosThingSpeak, 15000);
   </script>
 </body>
