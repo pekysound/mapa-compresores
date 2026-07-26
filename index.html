@@ -19,6 +19,7 @@
     html, body {
       height: 100%;
       width: 100%;
+      overflow: hidden;
     }
 
     #map {
@@ -29,8 +30,8 @@
     /* Popup Styling */
     .leaflet-popup-content-wrapper {
       border-radius: 12px;
-      padding: 6px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      padding: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
     }
 
     .card-title {
@@ -86,10 +87,18 @@
     }
 
     .last-update {
-      font-size: 10px;
-      color: #94a3b8;
+      font-size: 11px;
+      color: #64748b;
       text-align: right;
       margin-top: 8px;
+      font-weight: 600;
+    }
+
+    .error-msg {
+      color: #dc2626;
+      font-size: 11px;
+      margin-top: 4px;
+      text-align: center;
     }
   </style>
 </head>
@@ -111,26 +120,32 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Creazione marker e popup iniziale
-    const popup = L.popup({ autoClose: false, closeOnClick: false });
+    // Marker con Popup persistente aperto di default
     const marker = L.marker([44.4589, 7.8012]).addTo(map);
+    const popup = L.popup({ autoClose: false, closeOnClick: false });
 
     async function cargarDatosCompressore() {
       try {
-        // Agregamos anti-caché para forzar a pedir datos frescos a ThingSpeak
-        const res = await fetch(`${URL_THINGSPEAK}&_=${Date.now()}`, { cache: "no-store" });
+        // Evita el caché del navegador agregando parámetro único con timestamp
+        const timestamp = new Date().getTime();
+        const res = await fetch(`${URL_THINGSPEAK}&_nocache=${timestamp}`, { cache: "no-store" });
+        
+        if (!res.ok) throw new Error("Error en respuesta de red");
+
         const data = await res.json();
 
         // -----------------------------------------------------------
-        // FORMATEO DE DATOS - TODOS ENTEROS SIN DECIMALES (Math.round)
+        // FORMATEO ESTRICTO A NÚMEROS ENTEROS (Math.round)
         // -----------------------------------------------------------
-        const minutosCarga = Math.round(parseFloat(data.field1 || 0));
-        const minutosVacio = Math.round(parseFloat(data.field2 || 0));
-        const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
-        const horasRestantes = Math.round(parseFloat(data.field4 || 0));
-        const horasTotales = Math.round(parseFloat(data.field5 || 0));
-        const enMarcha = data.field6 === "1";
-        const avviamenti = Math.round(parseFloat(data.field7 || 0));
+        const minutosCarga       = Math.round(parseFloat(data.field1) || 0);
+        const minutosVacio       = Math.round(parseFloat(data.field2) || 0);
+        const seteoMantenimiento = Math.round(parseFloat(data.field3) || 1500);
+        const horasRestantes     = Math.round(parseFloat(data.field4) || 0);
+        const horasTotales       = Math.round(parseFloat(data.field5) || 0);
+        const enMarcha           = String(data.field6) === "1";
+        const avviamenti         = Math.round(parseFloat(data.field7) || 0);
+
+        const horaActual = new Date().toLocaleTimeString();
 
         const popupContent = `
           <div class="card-title">RMF MAGLIANO ALPI</div>
@@ -172,15 +187,18 @@
           </div>
 
           <div class="last-update">
-            Aggiornato: ${new Date(data.created_at).toLocaleTimeString()}
+            Aggiornato: ${horaActual}
           </div>
         `;
 
-        // Actualiza el contenido directamente en el popup sin recargar el pin
+        // Bind inicial o actualización de contenido sin recrear la ventana
         if (!marker.getPopup()) {
           marker.bindPopup(popupContent).openPopup();
         } else {
           marker.setPopupContent(popupContent);
+          if (!map.hasLayer(marker.getPopup())) {
+            marker.openPopup();
+          }
         }
 
       } catch (err) {
@@ -188,7 +206,7 @@
       }
     }
 
-    // Carica dati subito e poi ogni 15 secondi
+    // Ejecuta la primera carga y programa la actualización automática cada 15 segundos
     cargarDatosCompressore();
     setInterval(cargarDatosCompressore, 15000);
   </script>
