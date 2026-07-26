@@ -81,7 +81,7 @@
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
     marker.bindPopup("<div class='popup-card'>Caricamento dati...</div>");
 
-    // Convierte horas decimales a formato limpio con espacios (ej. "0 : 00" o "1 : 15")
+    // Convierte horas decimales a formato limpio con espacios (ej. "0 : 00" o "1500 : 00")
     function formatHorasMinutos(val) {
       if (val === null || val === undefined || val === "") return "0 : 00";
       const horasDecimales = parseFloat(val);
@@ -101,7 +101,7 @@
     function formatEntero(val) {
       if (val === null || val === undefined || val === "") return "0";
       const n = Math.round(parseFloat(val));
-      return isNaN(n) ? "0" : n.toString();
+      return isNaN(n) ? "0" : n.toString() + " : 00";
     }
 
     async function cargarDatosThingSpeak() {
@@ -117,11 +117,11 @@
 
         const horasCarico      = formatHorasMinutos(data.field1);
         const horasVacio       = formatHorasMinutos(data.field2);
-        const horasProgramadas = formatEntero(data.field3) + " h";
+        const horasProgramadas = formatEntero(data.field3);
         const horasRestantes   = formatHorasMinutos(data.field4);
         const totalHistorico   = formatHorasMinutos(data.field5);
         const enMarcha         = (String(data.field6).trim() === "1"); 
-        const avviamenti       = formatEntero(data.field7);
+        const avviamenti       = formatEntero(data.field7).replace(" : 00", ""); // Solo el número entero para los arranques
         const valorCrudoVacio  = data.field2 || "0";
 
         let horaUltimoEnvio = "Sconosciuto";
