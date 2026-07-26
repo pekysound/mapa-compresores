@@ -75,23 +75,34 @@
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
+    // Crear marcador e inicializar un popup vacío
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
+    const popup = L.popup({ autoClose: false, closeOnClick: false });
+    marker.bindPopup(popup);
+
+    // Función auxiliar para parsear enteros de forma segura
+    function parseEnteroSeguro(valor) {
+      if (valor === null || valor === undefined) return 0;
+      const num = Number(valor);
+      return isNaN(num) ? 0 : Math.round(num);
+    }
 
     async function cargarDatosThingSpeak() {
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
+      // Fuerza a no guardar en caché añadiendo timestamp dinámico y cabeceras
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?cb=${new Date().getTime()}`;
 
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "no-store" });
         const data = await response.json();
 
-        // Mappatura ESP32 (convertito a numero intero):
-        const horasCarico      = Math.round(parseFloat(data.field1 || 0));
-        const horasVacio       = Math.round(parseFloat(data.field2 || 0));
-        const horasProgramadas = Math.round(parseFloat(data.field3 || 0));
-        const horasRestantes   = Math.round(parseFloat(data.field4 || 0));
-        const totalHistorico   = Math.round(parseFloat(data.field5 || 0));
-        const enMarcha         = data.field6 === "1";
-        const avviamenti       = Math.round(parseFloat(data.field7 || 0));
+        // Mappatura ESP32 asegurando enteros limpios
+        const horasCarico      = parseEnteroSeguro(data.field1);
+        const horasVacio       = parseEnteroSeguro(data.field2);
+        const horasProgramadas = parseEnteroSeguro(data.field3);
+        const horasRestantes   = parseEnteroSeguro(data.field4);
+        const totalHistorico   = parseEnteroSeguro(data.field5);
+        const enMarcha         = String(data.field6).trim() === "1";
+        const avviamenti       = parseEnteroSeguro(data.field7);
 
         // Registro dell'ultimo aggiornamento
         let horaUltimoEnvio = "Sconosciuto";
@@ -136,15 +147,25 @@
         }
 
         popupContent += `</div>`;
-        marker.bindPopup(popupContent).openPopup();
+        
+        // Actualizar directamente el contenido del popup existente
+        popup.setContent(popupContent);
+
+        // Si es la primera carga o está cerrado, lo abre
+        if (!marker.isPopupOpen()) {
+          marker.openPopup();
+        }
 
       } catch (error) {
         console.error("Errore durante il recupero dei dati da ThingSpeak:", error);
       }
     }
 
+    // Carga inicial
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Aggiorna ogni 15 secondi
+
+    // Actualiza cada 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000);
   </script>
 </body>
 </html>
