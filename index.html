@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+  <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -27,7 +28,7 @@
     .status-marcha { background-color: #28a745; }
     .status-parado { background-color: #6c757d; }
     
-    /* Alerta visual de Mantenimiento (LED 2 digital) */
+    /* Alerta visual de Mantenimiento */
     .alerta-mantenimiento {
       background-color: #dc3545; color: white;
       padding: 8px; border-radius: 5px;
@@ -78,28 +79,27 @@
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
     async function cargarDatosThingSpeak() {
-      // Se agrega timestamp dinámico para obligar a descargar el dato más reciente
       const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
 
       try {
         const response = await fetch(url);
         const data = await response.json();
 
-        // Convertir valores a enteros redondeados
+        // 1. Obtener datos base redondeados a enteros
         const horasCarga = Math.round(parseFloat(data.field1 || 0));
         const horasVacio = Math.round(parseFloat(data.field2 || 0));
         const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
-        const horasRestantes = Math.round(parseFloat(data.field4 || 0));
         
-        // Suma automática e incondicional de Carico + Vuoto
+        // 2. Cálculos automáticos para garantizar coherencia matemática
         const horasTotales = horasCarga + horasVacio;
+        const horasRestantes = seteoMantenimiento - horasTotales;
         
-        // Estado y arranques
+        // 3. Estado y arranques
         const estadoCod = data.field6 || "1";
         const estaEnMarcha = (estadoCod === "1" || String(estadoCod).toLowerCase() === "marcha");
         const cantidadArranques = Math.round(parseFloat(data.field7 || 0));
 
-        // Hora exacta en la que ThingSpeak recibió la última transmisión
+        // 4. Hora del último paquete recibido
         let horaUltimoEnvio = "Desconocida";
         if (data.created_at) {
           const d = new Date(data.created_at);
@@ -154,7 +154,7 @@
 </html>
 ```eof
 
-### Puntos clave a revisar:
-1. **`Totale Ore` recalculado:** En el script ahora fuerza la regla `horasTotales = horasCarga + horasVacio`. De esta manera, sin importar lo que mande el canal en el campo 5, la suma siempre se actualiza si cambian las horas de Carga o Vacío.
-2. **Hora de la transmisión ("Último paquete PLC"):** Se agregó al final de la tarjeta la hora exacta en la que ThingSpeak recibió la última transmisión del equipo. 
-   * Si esa hora se mantiene congelada en el tiempo (por ejemplo, muestra una hora de hace rato), significa que **el emisor (ESP32 / PLC) es el que no está transmitiendo datos nuevos a ThingSpeak**.
+### Cambios realizados en la lógica:
+1. **`Totale Ore`**: $Carico + Vuoto$.
+2. **`Tempo Manutenzione`**: $Seteo\ Manutenzione - Totale\ Ore$.
+3. **Alerta**: Si las horas restantes bajan de `0`, se activa automáticamente la alerta en rojo **"⚠️ ¡MANTENIMIENTO REQUERIDO!"**.
