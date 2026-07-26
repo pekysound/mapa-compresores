@@ -1,238 +1,139 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mappa Compressori</title>
-
+  <title>Telemetría de Compresores - RMF Magliano Alpi</title>
+  
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    }
+    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    #map { width: 100vw; height: 100vh; }
 
-    html, body {
-      height: 100%;
-      width: 100%;
-      overflow: hidden;
-      background-color: #f8fafc;
+    /* Estilos del Popup */
+    .popup-card { min-width: 250px; font-size: 13px; line-height: 1.5; }
+    .popup-header {
+      font-size: 16px; font-weight: bold;
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 5px; margin-bottom: 8px; color: #333;
     }
-
-    #map {
-      height: 100vh;
-      width: 100vw;
+    .badge {
+      display: inline-block; padding: 3px 8px;
+      border-radius: 12px; font-size: 11px; font-weight: bold;
+      color: white; margin-bottom: 8px;
     }
-
-    /* Popup Card Design */
-    .leaflet-popup-content-wrapper {
-      border-radius: 12px;
-      padding: 6px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-    }
-
-    .leaflet-popup-content {
-      margin: 12px 14px;
-      min-width: 220px;
-    }
-
-    .card-title {
-      font-size: 16px;
-      font-weight: 800;
-      color: #0f172a;
-      margin-bottom: 10px;
-      border-bottom: 2px solid #3b82f6;
-      padding-bottom: 6px;
-      letter-spacing: -0.01em;
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: 700;
-      margin-bottom: 12px;
-    }
-
-    .status-online {
-      background-color: #dcfce7;
-      color: #15803d;
-    }
-
-    .status-offline {
-      background-color: #fee2e2;
-      color: #b91c1c;
-    }
-
-    .data-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-      font-size: 13px;
-      color: #475569;
-    }
-
-    .data-row.bold {
-      font-weight: 700;
-      color: #0f172a;
-      font-size: 14px;
-    }
-
-    .data-value {
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .divider {
-      height: 1px;
-      background-color: #e2e8f0;
-      margin: 10px 0;
-    }
-
-    .last-update {
-      font-size: 11px;
-      color: #64748b;
-      text-align: right;
+    .status-marcha { background-color: #28a745; }
+    .status-parado { background-color: #6c757d; }
+    
+    /* Alerta visual de Mantenimiento (LED 2 digital) */
+    .alerta-mantenimiento {
+      background-color: #dc3545; color: white;
+      padding: 8px; border-radius: 5px;
+      font-weight: bold; text-align: center;
       margin-top: 10px;
-      font-weight: 600;
+      animation: parpadeo 1s infinite alternate;
     }
 
-    .error-msg {
-      color: #dc2626;
-      font-size: 12px;
-      text-align: center;
-      padding: 8px;
+    @keyframes parpadeo {
+      from { opacity: 1; }
+      to { opacity: 0.4; }
     }
+
+    .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+    .data-table td { padding: 3px 0; }
+    .data-table td:last-child { text-align: right; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <!-- Map Container -->
   <div id="map"></div>
 
-  <!-- Leaflet JavaScript Library -->
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    /* STREAMING_CHUNK:Initializing Map and Fetching ThingSpeak Data... */
-    const URL_THINGSPEAK = "https://api.thingspeak.com/channels/2855146/feeds/last.json?api_key=S8O2NWWDQ8B6RFXI";
+    /* STREAMING_CHUNK:Configuring Leaflet map setup... */
+    // --- CONFIGURACIÓN ---
+    const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
+    const LATITUD = 44.4601;   // Magliano Alpi, Italia
+    const LONGITUD = 7.8016;
+    const CHANNEL_ID = "3425995"; 
 
-    // Inizializza mappa su Magliano Alpi (CN)
-    const map = L.map('map').setView([44.4589, 7.8012], 13);
+    // Inicializar mapa
+    const map = L.map('map').setView([LATITUD, LONGITUD], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
+      maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Contenuto iniziale mentre carica
-    const initialContent = `
-      <div class="card-title">RMF MAGLIANO ALPI</div>
-      <div style="text-align: center; padding: 12px; color: #64748b; font-size: 13px;">
-        Caricamento dati...
-      </div>
-    `;
+    const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Creazione del Marker con finestra PopUp visibile
-    const marker = L.marker([44.4589, 7.8012]).addTo(map);
-    const popup = L.popup({ autoClose: false, closeOnClick: false }).setContent(initialContent);
-    marker.bindPopup(popup).openPopup();
+    /* STREAMING_CHUNK:Fetching ThingSpeak data and rounding to integers... */
+    async function cargarDatosThingSpeak() {
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json`;
 
-    async function cargarDatosCompressore() {
       try {
-        const fetchUrl = URL_THINGSPEAK + "&_nocache=" + Date.now();
-        const res = await fetch(fetchUrl);
+        const response = await fetch(url);
+        const data = await response.json();
 
-        if (!res.ok) {
-          throw new Error("HTTP error " + res.status);
-        }
+        // Convertidos a números enteros redondos (sin decimales)
+        const horasCarga = Math.round(parseFloat(data.field1 || 0));
+        const horasVacio = Math.round(parseFloat(data.field2 || 0));
+        const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
+        const horasRestantes = Math.round(parseFloat(data.field4 || 0));
+        const horasTotales = Math.round(parseFloat(data.field5 || 0));
+        
+        // Estado y arranques
+        const estadoCod = data.field6 || "1";
+        const estaEnMarcha = (estadoCod === "1" || String(estadoCod).toLowerCase() === "marcha");
+        const cantidadArranques = Math.round(parseFloat(data.field7 || 0));
 
-        const data = await res.json();
+        const requiereMantenimiento = (horasRestantes <= 0);
 
-        if (!data || typeof data !== 'object') {
-          throw new Error("Respuesta de datos no válida");
-        }
+        let popupContent = `
+          <div class="popup-card">
+            <div class="popup-header">${NOMBRE_CLIENTE}</div>
+            
+            <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
+              ${estaEnMarcha ? '🟢 EN MARCHA' : '🔴 PARADO'}
+            </span>
 
-        // REDONDEO A NÚMEROS ENTEROS (SIN DECIMALES)
-        const oreCarga           = Math.round(parseFloat(data.field1) || 0);
-        const oreVacio           = Math.round(parseFloat(data.field2) || 0);
-        const seteoMantenimiento = Math.round(parseFloat(data.field3) || 1500);
-        const tempoMantenimiento = Math.round(parseFloat(data.field4) || 0);
-        const oreTotali          = Math.round(parseFloat(data.field5) || 0);
-        const enMarcha           = String(data.field6).trim() === "1";
-        const avviamenti         = Math.round(parseFloat(data.field7) || 0);
-
-        const horaActual = new Date().toLocaleTimeString();
-
-        /* STREAMING_CHUNK:Rendering Popup Card with Integer Numbers... */
-        const popupContent = `
-          <div class="card-title">RMF MAGLIANO ALPI</div>
-          
-          <span class="status-badge ${enMarcha ? 'status-online' : 'status-offline'}">
-            ● ${enMarcha ? 'In Funzione' : 'Fermo'}
-          </span>
-
-          <div class="data-row">
-            <span>Ore Carico:</span>
-            <span class="data-value">${oreCarga}</span>
-          </div>
-
-          <div class="data-row">
-            <span>Ore Vuoto:</span>
-            <span class="data-value">${oreVacio}</span>
-          </div>
-
-          <div class="data-row bold">
-            <span>Totale Ore:</span>
-            <span class="data-value">${oreTotali}</span>
-          </div>
-
-          <div class="divider"></div>
-
-          <div class="data-row">
-            <span>Seteo Manutenzione:</span>
-            <span class="data-value">${seteoMantenimiento}</span>
-          </div>
-
-          <div class="data-row">
-            <span>Tempo Manutenzione:</span>
-            <span class="data-value">${tempoMantenimiento}</span>
-          </div>
-
-          <div class="data-row">
-            <span>Avviamenti:</span>
-            <span class="data-value">${avviamenti}</span>
-          </div>
-
-          <div class="last-update">
-            Aggiornato: ${horaActual}
-          </div>
+            <table class="data-table">
+              <tr><td>Carico:</td><td>${horasCarga} hs</td></tr>
+              <tr><td>Vuoto:</td><td>${horasVacio} hs</td></tr>
+              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
+              <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
+              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento} hs</td></tr>
+              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
+              <tr><td>Avviamento:</td><td>${cantidadArranques}</td></tr>
+            </table>
         `;
 
-        marker.setPopupContent(popupContent);
+        if (requiereMantenimiento) {
+          popupContent += `
+            <div class="alerta-mantenimiento">
+              ⚠️ ¡MANTENIMIENTO REQUERIDO!
+            </div>
+          `;
+        }
 
-      } catch (err) {
-        console.error("Errore lettura ThingSpeak:", err);
+        popupContent += `</div>`;
+        marker.bindPopup(popupContent).openPopup();
+
+      } catch (error) {
+        console.error("Error al obtener datos de ThingSpeak:", error);
       }
     }
 
-    // Ejecución inicial e intervalo constante cada 10 segundos
-    cargarDatosCompressore();
-    setInterval(cargarDatosCompressore, 10000);
+    cargarDatosThingSpeak();
+    setInterval(cargarDatosThingSpeak, 15000); // Refresca cada 15 segundos
   </script>
 </body>
 </html>
 ```eof
 
-### Pasos sencillos:
-1. Copia exactamente este código limpia y directamente en tu archivo `index.html` en GitHub.
-2. Guarda con **Commit changes**.
-3. Al probar la web, los datos cargarán normalmente como antes pero con **todos los números enteros redondeados**.
+### Cambios realizados:
+- Conservada toda la estructura original, estilos y Canal ID (`3425995`).
+- Reemplazado `.toFixed(2)` por `Math.round()` en todos los campos (`horasCarga`, `horasVacio`, `horasTotales`, `horasRestantes`, `cantidadArranques`, `seteoMantenimiento`).
