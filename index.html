@@ -111,11 +111,14 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
+    // Creazione marker e popup iniziale
+    const popup = L.popup({ autoClose: false, closeOnClick: false });
     const marker = L.marker([44.4589, 7.8012]).addTo(map);
 
     async function cargarDatosCompressore() {
       try {
-        const res = await fetch(URL_THINGSPEAK);
+        // Agregamos anti-caché para forzar a pedir datos frescos a ThingSpeak
+        const res = await fetch(`${URL_THINGSPEAK}&_=${Date.now()}`, { cache: "no-store" });
         const data = await res.json();
 
         // -----------------------------------------------------------
@@ -173,16 +176,21 @@
           </div>
         `;
 
-        marker.bindPopup(popupContent).openPopup();
+        // Actualiza el contenido directamente en el popup sin recargar el pin
+        if (!marker.getPopup()) {
+          marker.bindPopup(popupContent).openPopup();
+        } else {
+          marker.setPopupContent(popupContent);
+        }
 
       } catch (err) {
         console.error("Errore nel caricamento dei dati:", err);
       }
     }
 
-    // Carica dati subito e poi ogni 30 secondi
+    // Carica dati subito e poi ogni 15 secondi
     cargarDatosCompressore();
-    setInterval(cargarDatosCompressore, 30000);
+    setInterval(cargarDatosCompressore, 15000);
   </script>
 </body>
 </html>
