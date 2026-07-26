@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mappa Compressori</title>
-  
-  <!-- CSS Leaflet per il Mappa -->
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
+
   <style>
     * {
       box-sizing: border-box;
@@ -15,11 +15,12 @@
       padding: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    
+
     html, body {
       height: 100%;
       width: 100%;
       overflow: hidden;
+      background-color: #f8fafc;
     }
 
     #map {
@@ -27,28 +28,36 @@
       width: 100vw;
     }
 
-    /* Popup Styling */
+    /* Popup Card Design */
     .leaflet-popup-content-wrapper {
       border-radius: 12px;
-      padding: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      padding: 6px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+
+    .leaflet-popup-content {
+      margin: 12px 14px;
+      min-width: 220px;
     }
 
     .card-title {
       font-size: 16px;
-      font-weight: 700;
-      color: #1e293b;
-      margin-bottom: 8px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 10px;
       border-bottom: 2px solid #3b82f6;
-      padding-bottom: 4px;
+      padding-bottom: 6px;
+      letter-spacing: -0.01em;
     }
 
     .status-badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       padding: 4px 10px;
-      border-radius: 20px;
+      border-radius: 9999px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 12px;
     }
 
@@ -65,6 +74,7 @@
     .data-row {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       margin-bottom: 6px;
       font-size: 13px;
       color: #475569;
@@ -73,38 +83,47 @@
     .data-row.bold {
       font-weight: 700;
       color: #0f172a;
+      font-size: 14px;
     }
 
     .data-value {
       font-weight: 700;
-      color: #1e293b;
+      color: #0f172a;
     }
 
     .divider {
       height: 1px;
       background-color: #e2e8f0;
-      margin: 8px 0;
+      margin: 10px 0;
     }
 
     .last-update {
       font-size: 11px;
       color: #64748b;
       text-align: right;
-      margin-top: 8px;
+      margin-top: 10px;
       font-weight: 600;
+    }
+
+    .error-msg {
+      color: #dc2626;
+      font-size: 12px;
+      text-align: center;
+      padding: 8px;
     }
   </style>
 </head>
 <body>
 
+  <!-- Map Container -->
   <div id="map"></div>
 
-  <!-- JS Leaflet -->
+  <!-- Leaflet JavaScript Library -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
     const URL_THINGSPEAK = "https://api.thingspeak.com/channels/2855146/feeds/last.json?api_key=S8O2NWWDQ8B6RFXI";
-    
+
     // Inizializza mappa su Magliano Alpi (CN)
     const map = L.map('map').setView([44.4589, 7.8012], 13);
 
@@ -113,36 +132,44 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Contenuto iniziale di caricamento
+    // Contenuto iniziale mentre carica
     const initialContent = `
       <div class="card-title">RMF MAGLIANO ALPI</div>
-      <div style="text-align: center; padding: 15px; color: #64748b; font-size: 13px;">
-        Connessione in corso...
+      <div style="text-align: center; padding: 12px; color: #64748b; font-size: 13px;">
+        Caricamento dati...
       </div>
     `;
 
-    // Creazione del Marker con finestra PopUp visibile subito
+    // Creazione del Marker con finestra PopUp visibile
     const marker = L.marker([44.4589, 7.8012]).addTo(map);
     const popup = L.popup({ autoClose: false, closeOnClick: false }).setContent(initialContent);
     marker.bindPopup(popup).openPopup();
 
     async function cargarDatosCompressore() {
       try {
-        const timestamp = new Date().getTime();
-        const res = await fetch(`${URL_THINGSPEAK}&_nocache=${timestamp}`, { cache: "no-store" });
-        
-        if (!res.ok) throw new Error("Errore risposta HTTP: " + res.status);
+        // Petición directa evadiendo la memoria caché
+        const fetchUrl = `${URL_THINGSPEAK}&_nocache=${Date.now()}`;
+        const res = await fetch(fetchUrl);
+
+        if (!res.ok) {
+          throw new Error("HTTP error " + res.status);
+        }
 
         const data = await res.json();
 
-        // CONVERSIÓN Y REDONDEO STRICTO A NÚMEROS ENTEROS (SIN DECIMALES)
-        const minutosCarga       = Math.round(Number(data.field1) || 0);
-        const minutosVacio       = Math.round(Number(data.field2) || 0);
-        const seteoMantenimiento = Math.round(Number(data.field3) || 1500);
-        const horasRestantes     = Math.round(Number(data.field4) || 0);
-        const horasTotales       = Math.round(Number(data.field5) || 0);
-        const enMarcha           = String(data.field6) === "1";
-        const avviamenti         = Math.round(Number(data.field7) || 0);
+        // Verificación de datos recibidos de ThingSpeak
+        if (!data || data === -1 || typeof data !== 'object') {
+          throw new Error("Respuesta de datos no válida");
+        }
+
+        // REDONDEO A NÚMEROS ENTEROS (SIN DECIMALES)
+        const oreCarga           = Math.round(parseFloat(data.field1) || 0);
+        const oreVacio           = Math.round(parseFloat(data.field2) || 0);
+        const seteoMantenimiento = Math.round(parseFloat(data.field3) || 1500);
+        const tempoMantenimiento = Math.round(parseFloat(data.field4) || 0);
+        const oreTotali          = Math.round(parseFloat(data.field5) || 0);
+        const enMarcha           = String(data.field6).trim() === "1";
+        const avviamenti         = Math.round(parseFloat(data.field7) || 0);
 
         const horaActual = new Date().toLocaleTimeString();
 
@@ -155,17 +182,17 @@
 
           <div class="data-row">
             <span>Ore Carico:</span>
-            <span class="data-value">${minutosCarga}</span>
+            <span class="data-value">${oreCarga}</span>
           </div>
 
           <div class="data-row">
             <span>Ore Vuoto:</span>
-            <span class="data-value">${minutosVacio}</span>
+            <span class="data-value">${oreVacio}</span>
           </div>
 
           <div class="data-row bold">
             <span>Totale Ore:</span>
-            <span class="data-value">${horasTotales}</span>
+            <span class="data-value">${oreTotali}</span>
           </div>
 
           <div class="divider"></div>
@@ -177,7 +204,7 @@
 
           <div class="data-row">
             <span>Tempo Manutenzione:</span>
-            <span class="data-value">${horasRestantes}</span>
+            <span class="data-value">${tempoMantenimiento}</span>
           </div>
 
           <div class="data-row">
@@ -191,16 +218,25 @@
         `;
 
         marker.setPopupContent(popupContent);
-        if (!map.hasLayer(popup)) {
-          marker.openPopup();
-        }
 
       } catch (err) {
-        console.error("Errore ThingSpeak:", err);
+        console.error("Errore lettura ThingSpeak:", err);
+        // Muestra estado de reintento si la red falla
+        const errorContent = `
+          <div class="card-title">RMF MAGLIANO ALPI</div>
+          <div class="error-msg">
+            ⚠️ Connessione in corso...<br>
+            <span style="font-size: 10px; color: #94a3b8;">(Reintento automatico)</span>
+          </div>
+        `;
+        // Mantiene el popup visible mientras intenta reconectar
+        if (marker.getPopup().getContent().includes("Caricamento dati...")) {
+          marker.setPopupContent(errorContent);
+        }
       }
     }
 
-    // Caricamento iniziale e aggiornamento ogni 10 secondi
+    // Ejecución inicial e intervalo de actualización constante (cada 10 segundos)
     cargarDatosCompressore();
     setInterval(cargarDatosCompressore, 10000);
   </script>
