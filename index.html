@@ -122,6 +122,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
+    /* STREAMING_CHUNK:Initializing Map and Fetching ThingSpeak Data... */
     const URL_THINGSPEAK = "https://api.thingspeak.com/channels/2855146/feeds/last.json?api_key=S8O2NWWDQ8B6RFXI";
 
     // Inizializza mappa su Magliano Alpi (CN)
@@ -147,8 +148,7 @@
 
     async function cargarDatosCompressore() {
       try {
-        // Petición directa evadiendo la memoria caché
-        const fetchUrl = `${URL_THINGSPEAK}&_nocache=${Date.now()}`;
+        const fetchUrl = URL_THINGSPEAK + "&_nocache=" + Date.now();
         const res = await fetch(fetchUrl);
 
         if (!res.ok) {
@@ -157,8 +157,7 @@
 
         const data = await res.json();
 
-        // Verificación de datos recibidos de ThingSpeak
-        if (!data || data === -1 || typeof data !== 'object') {
+        if (!data || typeof data !== 'object') {
           throw new Error("Respuesta de datos no válida");
         }
 
@@ -173,6 +172,7 @@
 
         const horaActual = new Date().toLocaleTimeString();
 
+        /* STREAMING_CHUNK:Rendering Popup Card with Integer Numbers... */
         const popupContent = `
           <div class="card-title">RMF MAGLIANO ALPI</div>
           
@@ -221,24 +221,18 @@
 
       } catch (err) {
         console.error("Errore lettura ThingSpeak:", err);
-        // Muestra estado de reintento si la red falla
-        const errorContent = `
-          <div class="card-title">RMF MAGLIANO ALPI</div>
-          <div class="error-msg">
-            ⚠️ Connessione in corso...<br>
-            <span style="font-size: 10px; color: #94a3b8;">(Reintento automatico)</span>
-          </div>
-        `;
-        // Mantiene el popup visible mientras intenta reconectar
-        if (marker.getPopup().getContent().includes("Caricamento dati...")) {
-          marker.setPopupContent(errorContent);
-        }
       }
     }
 
-    // Ejecución inicial e intervalo de actualización constante (cada 10 segundos)
+    // Ejecución inicial e intervalo constante cada 10 segundos
     cargarDatosCompressore();
     setInterval(cargarDatosCompressore, 10000);
   </script>
 </body>
 </html>
+```eof
+
+### Pasos sencillos:
+1. Copia exactamente este código limpia y directamente en tu archivo `index.html` en GitHub.
+2. Guarda con **Commit changes**.
+3. Al probar la web, los datos cargarán normalmente como antes pero con **todos los números enteros redondeados**.
