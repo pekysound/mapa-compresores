@@ -77,7 +77,7 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Convierte horas decimales (ej. 0.9 o 1.4) a formato legible "0h 54m" o "1h 24m"
+    // Convierte horas decimales reales a formato legible "0h 54m"
     function formatHorasMinutos(val) {
       if (val === null || val === undefined || val === "") return "0h 00m";
       const horasDecimales = parseFloat(val);
@@ -86,7 +86,6 @@
       const horas = Math.floor(horasDecimales);
       const minutos = Math.round((horasDecimales - horas) * 60);
 
-      // Si por redondeo los minutos llegan a 60
       if (minutos === 60) {
         return `${horas + 1}h 00m`;
       }
@@ -112,14 +111,13 @@
 
         const data = json.feeds[0];
 
-        // Conversión a formato Horas y Minutos:
-        const horasCarico      = formatHorasMinutos(data.field1); // Ej: "0h 50m"
-        const horasVacio       = formatHorasMinutos(data.field2); // Ej: "0h 30m"
-        const horasProgramadas = formatEntero(data.field3) + " h"; // Ej: "1000 h"
-        const horasRestantes   = formatHorasMinutos(data.field4); // Ej: "999h 20m"
-        const totalHistorico   = formatHorasMinutos(data.field5); // Ej: "1h 20m"
+        const horasCarico      = formatHorasMinutos(data.field1);
+        const horasVacio       = formatHorasMinutos(data.field2);
+        const horasProgramadas = formatEntero(data.field3) + " h";
+        const horasRestantes   = formatHorasMinutos(data.field4);
+        const totalHistorico   = formatHorasMinutos(data.field5);
         const enMarcha         = (String(data.field6).trim() === "1"); 
-        const avviamenti       = formatEntero(data.field7);       // Ej: "57"
+        const avviamenti       = formatEntero(data.field7);
 
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
