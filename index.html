@@ -1,4 +1,118 @@
-<!-- ... existing code ... -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mappa Compressori</title>
+  
+  <!-- CSS Leaflet per il Mappa -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    html, body {
+      height: 100%;
+      width: 100%;
+    }
+
+    #map {
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Popup Styling */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 4px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .status-online {
+      background-color: #dcfce7;
+      color: #15803d;
+    }
+
+    .status-offline {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #475569;
+    }
+
+    .data-row.bold {
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .data-value {
+      font-weight: 700;
+      color: #1e293b;
+    }
+
+    .divider {
+      height: 1px;
+      background-color: #e2e8f0;
+      margin: 8px 0;
+    }
+
+    .last-update {
+      font-size: 10px;
+      color: #94a3b8;
+      text-align: right;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- JS Leaflet -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    const URL_THINGSPEAK = "https://api.thingspeak.com/channels/2855146/feeds/last.json?api_key=S8O2NWWDQ8B6RFXI";
+    
+    // Inizializza mappa su Magliano Alpi (CN)
+    const map = L.map('map').setView([44.4589, 7.8012], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const marker = L.marker([44.4589, 7.8012]).addTo(map);
+
     async function cargarDatosCompressore() {
       try {
         const res = await fetch(URL_THINGSPEAK);
@@ -65,10 +179,10 @@
         console.error("Errore nel caricamento dei dati:", err);
       }
     }
-<!-- ... existing code ... -->
-```
 
-### Cambios realizados:
-- **`horasTotales`** y **`horasRestantes`**: Se eliminó la extensión `.toFixed(1)` y ahora usan `Math.round()`, eliminando por completo cualquier punto o número decimal.
-- **`seteoMantenimiento`** y **`avviamenti`**: Se unificaron para garantizar el redondeo a enteros.
-- Todos los valores mostrados en la ventana emergente del mapa se verán ahora como **números enteros directos**.
+    // Carica dati subito e poi ogni 30 secondi
+    cargarDatosCompressore();
+    setInterval(cargarDatosCompressore, 30000);
+  </script>
+</body>
+</html>
