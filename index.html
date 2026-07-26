@@ -103,11 +103,10 @@
     }
 
     async function cargarDatosThingSpeak() {
-      // Forzamos la descarga sin caché sumando un parámetro temporal único
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&api_key=&rand=${Math.random()}`;
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&rand=${Math.random()}`;
 
       try {
-        const response = await fetch(url, { cache: 'reload', headers: { 'Pragma': 'no-cache' } });
+        const response = await fetch(url, { cache: 'reload' });
         const json = await response.json();
 
         if (!json.feeds || json.feeds.length === 0) return;
@@ -121,8 +120,7 @@
         const totalHistorico   = formatHorasMinutos(data.field5);
         const enMarcha         = (String(data.field6).trim() === "1"); 
         const avviamenti       = formatEntero(data.field7);
-
-        const valorCrudoVacio = data.field2 || "0";
+        const valorCrudoVacio  = data.field2 || "0";
 
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
@@ -135,13 +133,11 @@
         let popupContent = `
           <div class="popup-card">
             <div class="popup-header">${NOMBRE_CLIENTE}</div>
-
             <div>
               <span class="badge ${enMarcha ? 'status-marcha' : 'status-parado'}">
                 ${enMarcha ? 'IN MARCIA' : 'FERMO'}
               </span>
             </div>
-
             <table class="data-table">
               <tr><td>Ore Carico:</td><td>${horasCarico}</td></tr>
               <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
@@ -151,7 +147,6 @@
               <tr><td>Ciclo Programmato:</td><td>${horasProgramadas}</td></tr>
               <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
             </table>
-
             <div class="last-packet">
               Servidor TS: <strong>${horaUltimoEnvio}</strong><br>
               Field 2 Bruto: <code>${valorCrudoVacio}</code>
