@@ -76,11 +76,11 @@
         const response = await fetch(url);
         const data = await response.json();
 
-        const horasCarga = parseFloat(data.field1 || 0).toFixed(2);
-        const horasVacio = parseFloat(data.field2 || 0).toFixed(2);
+        const horasCarga = parseFloat(data.field1 || 0).toFixed(0);
+        const horasVacio = parseFloat(data.field2 || 0).toFixed(0);
         const seteoMantenimiento = parseFloat(data.field3 || 1500).toFixed(0);
-        const horasRestantes = parseFloat(data.field4 || 0).toFixed(2);
-        const horasTotales = parseFloat(data.field5 || 0).toFixed(2);
+        const horasRestantes = parseFloat(data.field4 || 0).toFixed(0);
+        const horasTotales = parseFloat(data.field5 || 0).toFixed(0);
         
         // Estado y arranques (field6 y field7)
         const estadoCod = data.field6 || "1";
