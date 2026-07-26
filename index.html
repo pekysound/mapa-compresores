@@ -12,7 +12,7 @@
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     #map { width: 100vw; height: 100vh; }
 
-    /* Stili del Popup */
+    /* Estilos del Popup */
     .popup-card { min-width: 260px; font-size: 13px; line-height: 1.5; }
     .popup-header {
       font-size: 15px; font-weight: bold;
@@ -27,7 +27,7 @@
     .status-marcha { background-color: #28a745; }
     .status-parado { background-color: #6c757d; }
     
-    /* Allarme visivo Manutenzione */
+    /* Alerta visual de Mantenimiento */
     .alerta-mantenimiento {
       background-color: #dc3545; color: white;
       padding: 8px; border-radius: 5px;
@@ -62,13 +62,13 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // --- CONFIGURAZIONE ---
+    // --- CONFIGURACIÓN ---
     const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
     const LATITUD = 44.4601;   // Magliano Alpi, Italia
     const LONGITUD = 7.8016;
     const CHANNEL_ID = "3425995"; 
 
-    // Inizializzare la mappa
+    // Inicializar mapa
     const map = L.map('map').setView([LATITUD, LONGITUD], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -77,42 +77,26 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    function aEntero(val) {
-      if (val === null || val === undefined || val === "") return 0;
-      const n = Math.round(parseFloat(val));
-      return isNaN(n) ? 0 : n;
-    }
-
     async function cargarDatosThingSpeak() {
-      // Pedimos los datos al endpoint de FEEDS solicitando el último resultado
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&_nocache=${Date.now()}`;
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
 
       try {
         const response = await fetch(url);
         const data = await response.json();
 
-        // Validar que tengamos datos en los feeds
-        if (!data || !data.feeds || data.feeds.length === 0) {
-          console.warn("No se encontraron feeds en ThingSpeak");
-          return;
-        }
+        // Mapeo correspondiente al ESP32 (enteros sin decimales ni hs):
+        const horasCarico      = Math.round(parseFloat(data.field1 || 0));
+        const horasVacio       = Math.round(parseFloat(data.field2 || 0));
+        const horasProgramadas = Math.round(parseFloat(data.field3 || 0));
+        const horasRestantes   = Math.round(parseFloat(data.field4 || 0));
+        const totalHistorico   = Math.round(parseFloat(data.field5 || 0));
+        const enMarcha         = (data.field6 === "1");
+        const avviamenti       = Math.round(parseFloat(data.field7 || 0));
 
-        const ultimoFeed = data.feeds[0];
-        console.log("Datos recibidos de ThingSpeak:", ultimoFeed);
-
-        // Mappatura ESP32:
-        const horasCarico      = aEntero(ultimoFeed.field1);
-        const horasVacio       = aEntero(ultimoFeed.field2);
-        const horasProgramadas = aEntero(ultimoFeed.field3);
-        const horasRestantes   = aEntero(ultimoFeed.field4);
-        const totalHistorico   = aEntero(ultimoFeed.field5);
-        const enMarcha         = String(ultimoFeed.field6).trim() === "1";
-        const avviamenti       = aEntero(ultimoFeed.field7);
-
-        // Registro dell'ultimo aggiornamento
+        // Registro de última actualización
         let horaUltimoEnvio = "Sconosciuto";
-        if (ultimoFeed.created_at) {
-          const d = new Date(ultimoFeed.created_at);
+        if (data.created_at) {
+          const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
@@ -132,7 +116,7 @@
               <tr><td>Ore Carico:</td><td>${horasCarico}</td></tr>
               <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
               <tr><td><strong>Ore Totali:</strong></td><td><strong>${totalHistorico}</strong></td></tr>
-              <tr><td>Avviamenti Totali:</td><td>${avviamenti}</td></tr>
+              <tr><td>Avviamenti:</td><td>${avviamenti}</td></tr>
               <tr><td colspan="2"><hr style="border: 0.5px solid #eee; margin: 4px 0;"></td></tr>
               <tr><td>Ciclo Programmato:</td><td>${horasProgramadas}</td></tr>
               <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
@@ -152,15 +136,10 @@
         }
 
         popupContent += `</div>`;
-
-        // Vincula y abre el popup con los datos actualizados
-        marker.bindPopup(popupContent);
-        if (!marker.isPopupOpen()) {
-          marker.openPopup();
-        }
+        marker.bindPopup(popupContent).openPopup();
 
       } catch (error) {
-        console.error("Errore durante il recupero dei dati da ThingSpeak:", error);
+        console.error("Error al obtener datos de ThingSpeak:", error);
       }
     }
 
