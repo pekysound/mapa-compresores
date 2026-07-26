@@ -77,11 +77,18 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Trunca a horas enteras (ej. 0.9 hs pasa a 0 hs hasta completar la 1ª hora)
+    // Formateador para valores con decimales (Horas acumuladas)
+    function formatDecimal(val) {
+      if (val === null || val === undefined || val === "") return "0.0";
+      const n = parseFloat(val);
+      return isNaN(n) ? "0.0" : n.toFixed(1);
+    }
+
+    // Formateador para valores enteros (Contadores o Ciclos)
     function formatEntero(val) {
-      if (val === null || val === undefined || val === "") return 0;
-      const n = Math.floor(parseFloat(val));
-      return isNaN(n) ? 0 : n;
+      if (val === null || val === undefined || val === "") return "0";
+      const n = Math.round(parseFloat(val));
+      return isNaN(n) ? "0" : n.toString();
     }
 
     async function cargarDatosThingSpeak() {
@@ -95,21 +102,23 @@
 
         const data = json.feeds[0];
 
-        const horasCarico      = formatEntero(data.field1);
-        const horasVacio       = formatEntero(data.field2);
-        const horasProgramadas = formatEntero(data.field3);
-        const horasRestantes   = formatEntero(data.field4);
-        const totalHistorico   = formatEntero(data.field5);
-        const enMarcha         = (String(data.field6).trim() === "1");
-        const avviamenti       = formatEntero(data.field7);
+        // Procesamiento adaptado al tipo de dato real:
+        const horasCarico      = formatDecimal(data.field1); // Horas de Carga
+        const horasVacio       = formatDecimal(data.field2); // Horas de Vacío
+        const horasProgramadas = formatEntero(data.field3);  // Ciclo Programado
+        const horasRestantes   = formatDecimal(data.field4); // Tiempo Mantenimiento
+        const totalHistorico   = formatDecimal(data.field5); // Horas Totales
+        const enMarcha         = (String(data.field6).trim() === "1"); 
+        const avviamenti       = formatEntero(data.field7);  // Arrankes / Avviamenti
 
+        // Hora del paquete
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (horasRestantes <= 0);
+        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
 
         let popupContent = `
           <div class="popup-card">
