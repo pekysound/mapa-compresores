@@ -1,10 +1,9 @@
-// ULTIMO FUNCIONAL 26/07/26
-  <!DOCTYPE html>
-<html lang="es">
+<!DOCTYPE html>
+<html lang="it">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telemetría de Compresores - RMF Magliano Alpi</title>
+  <title>Telemetria Compressori - RMF Magliano Alpi</title>
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -14,9 +13,9 @@
     #map { width: 100vw; height: 100vh; }
 
     /* Estilos del Popup */
-    .popup-card { min-width: 250px; font-size: 13px; line-height: 1.5; }
+    .popup-card { min-width: 280px; font-size: 13px; line-height: 1.5; }
     .popup-header {
-      font-size: 16px; font-weight: bold;
+      font-size: 15px; font-weight: bold;
       border-bottom: 2px solid #007bff;
       padding-bottom: 5px; margin-bottom: 8px; color: #333;
     }
@@ -52,6 +51,8 @@
       text-align: right;
       margin-top: 8px;
       font-style: italic;
+      border-top: 1px dashed #ddd;
+      padding-top: 4px;
     }
   </style>
 </head>
@@ -76,85 +77,105 @@
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
+    // Creamos el marcador y le asignamos un popup inicial vacío
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
+    marker.bindPopup("<div class='popup-card'>Caricamento dati...</div>");
+
+    // Convierte horas decimales reales a formato legible "0h 42m"
+    function formatHorasMinutos(val) {
+      if (val === null || val === undefined || val === "") return "0h 00m";
+      const horasDecimales = parseFloat(val);
+      if (isNaN(horasDecimales)) return "0h 00m";
+
+      const horas = Math.floor(horasDecimales);
+      const minutos = Math.round((horasDecimales - horas) * 60);
+
+      if (minutos === 60) {
+        return `${horas + 1}h 00m`;
+      }
+
+      const minStr = minutos < 10 ? `0${minutos}` : `${minutos}`;
+      return `${horas}h ${minStr}m`;
+    }
+
+    function formatEntero(val) {
+      if (val === null || val === undefined || val === "") return "0";
+      const n = Math.round(parseFloat(val));
+      return isNaN(n) ? "0" : n.toString();
+    }
 
     async function cargarDatosThingSpeak() {
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&rand=${Math.random()}`;
 
       try {
-        const response = await fetch(url);
-        const data = await response.json();
+        const response = await fetch(url, { cache: 'reload' });
+        const json = await response.json();
 
-        // 1. Obtener datos base redondeados a enteros
-        const horasCarga = Math.round(parseFloat(data.field1 || 0));
-        const horasVacio = Math.round(parseFloat(data.field2 || 0));
-        const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
-        
-        // 2. Cálculos automáticos para garantizar coherencia matemática
-        const horasTotales = horasCarga + horasVacio;
-        const horasRestantes = seteoMantenimiento - horasTotales;
-        
-        // 3. Estado y arranques
-        const estadoCod = data.field6 || "1";
-        const estaEnMarcha = (estadoCod === "1" || String(estadoCod).toLowerCase() === "marcha");
-        const cantidadArranques = Math.round(parseFloat(data.field7 || 0));
+        if (!json.feeds || json.feeds.length === 0) return;
 
-        // 4. Hora del último paquete recibido
-        let horaUltimoEnvio = "Desconocida";
+        const data = json.feeds[0];
+
+        const horasCarico      = formatHorasMinutos(data.field1);
+        const horasVacio       = formatHorasMinutos(data.field2);
+        const horasProgramadas = formatEntero(data.field3) + " h";
+        const horasRestantes   = formatHorasMinutos(data.field4);
+        const totalHistorico   = formatHorasMinutos(data.field5);
+        const enMarcha         = (String(data.field6).trim() === "1"); 
+        const avviamenti       = formatEntero(data.field7);
+        const valorCrudoVacio  = data.field2 || "0";
+
+        let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (horasRestantes <= 0);
+        const requiereMantenimiento = (parseFloat(data.field4 || 0) <= 0);
 
         let popupContent = `
           <div class="popup-card">
             <div class="popup-header">${NOMBRE_CLIENTE}</div>
-            
-            <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
-              ${estaEnMarcha ? '🟢 EN MARCHA' : '🔴 PARADO'}
-            </span>
-
+            <div>
+              <span class="badge ${enMarcha ? 'status-marcha' : 'status-parado'}">
+                ${enMarcha ? 'IN MARCIA' : 'FERMO'}
+              </span>
+            </div>
             <table class="data-table">
-              <tr><td>Carico:</td><td>${horasCarga} hs</td></tr>
-              <tr><td>Vuoto:</td><td>${horasVacio} hs</td></tr>
-              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales} hs</strong></td></tr>
-              <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento} hs</td></tr>
-              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
-              <tr><td>Avviamento:</td><td>${cantidadArranques}</td></tr>
+              <tr><td>Ore Carico:</td><td>${horasCarico}</td></tr>
+              <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
+              <tr><td><strong>Ore Totali:</strong></td><td><strong>${totalHistorico}</strong></td></tr>
+              <tr><td>Avviamenti:</td><td>${avviamenti}</td></tr>
+              <tr><td colspan="2"><hr style="border: 0.5px solid #eee; margin: 4px 0;"></td></tr>
+              <tr><td>Ciclo Programmato:</td><td>${horasProgramadas}</td></tr>
+              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
             </table>
-
             <div class="last-packet">
-              Último paquete PLC: <strong>${horaUltimoEnvio}</strong>
+              Servidor TS: <strong>${horaUltimoEnvio}</strong><br>
+              Field 2 Bruto: <code>${valorCrudoVacio}</code>
             </div>
         `;
 
         if (requiereMantenimiento) {
           popupContent += `
             <div class="alerta-mantenimiento">
-              ⚠️ ¡MANTENIMIENTO REQUERIDO!
+              ⚠️ MANUTENZIONE RICHIESTA!
             </div>
           `;
         }
 
         popupContent += `</div>`;
-        marker.bindPopup(popupContent).openPopup();
+
+        // Actualizamos el contenido dinámicamente sin cerrar el popup si ya está abierto
+        marker.setPopupContent(popupContent);
 
       } catch (error) {
         console.error("Error al obtener datos de ThingSpeak:", error);
       }
     }
 
+    // Carga inicial y bucle de actualización cada 15 segundos
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Refresca cada 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000);
   </script>
 </body>
 </html>
-```eof
-
-### Cambios realizados en la lógica:
-1. **`Totale Ore`**: $Carico + Vuoto$.
-2. **`Tempo Manutenzione`**: $Seteo\ Manutenzione - Totale\ Ore$.
-3. **Alerta**: Si las horas restantes bajan de `0`, se activa automáticamente la alerta en rojo **"⚠️ ¡MANTENIMIENTO REQUERIDO!"**.
