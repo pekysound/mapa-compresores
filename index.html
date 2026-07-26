@@ -77,7 +77,9 @@
       maxZoom: 19, attribution: '© OpenStreetMap'
     }).addTo(map);
 
+    // Creamos el marcador y le asignamos un popup inicial vacío
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
+    marker.bindPopup("<div class='popup-card'>Caricamento dati...</div>");
 
     // Convierte horas decimales reales a formato legible "0h 42m"
     function formatHorasMinutos(val) {
@@ -163,16 +165,15 @@
 
         popupContent += `</div>`;
 
-        marker.bindPopup(popupContent);
-        if (!marker.isPopupOpen()) {
-          marker.openPopup();
-        }
+        // Actualizamos el contenido dinámicamente sin cerrar el popup si ya está abierto
+        marker.setPopupContent(popupContent);
 
       } catch (error) {
         console.error("Error al obtener datos de ThingSpeak:", error);
       }
     }
 
+    // Carga inicial y bucle de actualización cada 15 segundos
     cargarDatosThingSpeak();
     setInterval(cargarDatosThingSpeak, 15000);
   </script>
