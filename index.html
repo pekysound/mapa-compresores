@@ -77,15 +77,22 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Mueve la coma 2 posiciones a la izquierda y formatea a 2 decimales con coma
-    function formatDosDecimales(val) {
-      if (val === null || val === undefined || val === "") return "0,00";
-      const n = parseFloat(val);
-      if (isNaN(n)) return "0,00";
-      
-      // Si el valor viene sin escalar (ej. 83), lo dividimos por 100 -> 0.83
-      // Si ya viene escalado en ThingSpeak como decimal (ej. 0.83), omitir la división / 100 abajo.
-      return n.toFixed(2).replace('.', ',');
+    // Convierte horas decimales (ej. 0.9 o 1.4) a formato legible "0h 54m" o "1h 24m"
+    function formatHorasMinutos(val) {
+      if (val === null || val === undefined || val === "") return "0h 00m";
+      const horasDecimales = parseFloat(val);
+      if (isNaN(horasDecimales)) return "0h 00m";
+
+      const horas = Math.floor(horasDecimales);
+      const minutos = Math.round((horasDecimales - horas) * 60);
+
+      // Si por redondeo los minutos llegan a 60
+      if (minutos === 60) {
+        return `${horas + 1}h 00m`;
+      }
+
+      const minStr = minutos < 10 ? `0${minutos}` : `${minutos}`;
+      return `${horas}h ${minStr}m`;
     }
 
     function formatEntero(val) {
@@ -105,12 +112,12 @@
 
         const data = json.feeds[0];
 
-        // Mapeo con 2 decimales y coma
-        const horasCarico      = formatDosDecimales(data.field1); // Ej: "0,83"
-        const horasVacio       = formatDosDecimales(data.field2); // Ej: "0,34"
-        const horasProgramadas = formatEntero(data.field3);       // Ej: "1000"
-        const horasRestantes   = formatDosDecimales(data.field4); // Ej: "999,56"
-        const totalHistorico   = formatDosDecimales(data.field5); // Ej: "1,17"
+        // Conversión a formato Horas y Minutos:
+        const horasCarico      = formatHorasMinutos(data.field1); // Ej: "0h 50m"
+        const horasVacio       = formatHorasMinutos(data.field2); // Ej: "0h 30m"
+        const horasProgramadas = formatEntero(data.field3) + " h"; // Ej: "1000 h"
+        const horasRestantes   = formatHorasMinutos(data.field4); // Ej: "999h 20m"
+        const totalHistorico   = formatHorasMinutos(data.field5); // Ej: "1h 20m"
         const enMarcha         = (String(data.field6).trim() === "1"); 
         const avviamenti       = formatEntero(data.field7);       // Ej: "57"
 
