@@ -44,6 +44,14 @@
     .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
     .data-table td { padding: 3px 0; }
     .data-table td:last-child { text-align: right; font-weight: bold; }
+    
+    .last-packet {
+      font-size: 10px;
+      color: #666;
+      text-align: right;
+      margin-top: 8px;
+      font-style: italic;
+    }
   </style>
 </head>
 <body>
@@ -70,35 +78,33 @@
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
     async function cargarDatosThingSpeak() {
-      // Evitar que el navegador guarde en caché la petición
+      // Se agrega timestamp dinámico para obligar a descargar el dato más reciente
       const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
 
       try {
         const response = await fetch(url);
         const data = await response.json();
 
-        // Obtener valores numéricos
-        const rawCarga = parseFloat(data.field1 || 0);
-        const rawVacio = parseFloat(data.field2 || 0);
-        const rawSeteo = parseFloat(data.field3 || 1500);
-        const rawRestantes = parseFloat(data.field4 || 0);
-        const rawField5 = parseFloat(data.field5 || 0);
-
-        // Convertir a enteros redondeados
-        const horasCarga = Math.round(rawCarga);
-        const horasVacio = Math.round(rawVacio);
-        const seteoMantenimiento = Math.round(rawSeteo);
-        const horasRestantes = Math.round(rawRestantes);
-
-        // Si field5 está congelado o viene en 0, se calcula dinámicamente sumando Carico + Vuoto
-        const horasTotales = (rawField5 > 0 && rawField5 >= (rawCarga + rawVacio))
-          ? Math.round(rawField5)
-          : Math.round(rawCarga + rawVacio);
+        // Convertir valores a enteros redondeados
+        const horasCarga = Math.round(parseFloat(data.field1 || 0));
+        const horasVacio = Math.round(parseFloat(data.field2 || 0));
+        const seteoMantenimiento = Math.round(parseFloat(data.field3 || 1500));
+        const horasRestantes = Math.round(parseFloat(data.field4 || 0));
+        
+        // Suma automática e incondicional de Carico + Vuoto
+        const horasTotales = horasCarga + horasVacio;
         
         // Estado y arranques
         const estadoCod = data.field6 || "1";
         const estaEnMarcha = (estadoCod === "1" || String(estadoCod).toLowerCase() === "marcha");
         const cantidadArranques = Math.round(parseFloat(data.field7 || 0));
+
+        // Hora exacta en la que ThingSpeak recibió la última transmisión
+        let horaUltimoEnvio = "Desconocida";
+        if (data.created_at) {
+          const d = new Date(data.created_at);
+          horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
 
         const requiereMantenimiento = (horasRestantes <= 0);
 
@@ -119,6 +125,10 @@
               <tr><td>Tempo Manutenzione:</td><td>${horasRestantes} hs</td></tr>
               <tr><td>Avviamento:</td><td>${cantidadArranques}</td></tr>
             </table>
+
+            <div class="last-packet">
+              Último paquete PLC: <strong>${horaUltimoEnvio}</strong>
+            </div>
         `;
 
         if (requiereMantenimiento) {
@@ -144,6 +154,7 @@
 </html>
 ```eof
 
-### ¿Qué se modificó?
-- **Suma dinámica:** `Totale Ore` ahora suma automáticamente `Carico + Vuoto` si `field5` en ThingSpeak no viene actualizado.
-- **Sin caché de navegador:** Se añadió un parámetro de tiempo (`?_nocache=...`) a la URL de ThingSpeak para forzar que descargue siempre el último registro.
+### Puntos clave a revisar:
+1. **`Totale Ore` recalculado:** En el script ahora fuerza la regla `horasTotales = horasCarga + horasVacio`. De esta manera, sin importar lo que mande el canal en el campo 5, la suma siempre se actualiza si cambian las horas de Carga o Vacío.
+2. **Hora de la transmisión ("Último paquete PLC"):** Se agregó al final de la tarjeta la hora exacta en la que ThingSpeak recibió la última transmisión del equipo. 
+   * Si esa hora se mantiene congelada en el tiempo (por ejemplo, muestra una hora de hace rato), significa que **el emisor (ESP32 / PLC) es el que no está transmitiendo datos nuevos a ThingSpeak**.
