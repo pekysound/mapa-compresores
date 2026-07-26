@@ -78,22 +78,23 @@
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
     async function cargarDatosThingSpeak() {
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?_nocache=${Date.now()}`;
+      // Forzamos al servidor a saltarse la caché del navegador
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?nocache=${new Date().getTime()}`;
 
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: "no-store" });
         const data = await response.json();
 
-        // Mapeo correspondiente al ESP32 (enteros sin decimales ni hs):
-        const horasCarico      = Math.round(parseFloat(data.field1 || 0));
-        const horasVacio       = Math.round(parseFloat(data.field2 || 0));
-        const horasProgramadas = Math.round(parseFloat(data.field3 || 0));
-        const horasRestantes   = Math.round(parseFloat(data.field4 || 0));
-        const totalHistorico   = Math.round(parseFloat(data.field5 || 0));
-        const enMarcha         = (data.field6 === "1");
-        const avviamenti       = Math.round(parseFloat(data.field7 || 0));
+        // Conversión a enteros limpios
+        const horasCarico      = Math.round(Number(data.field1) || 0);
+        const horasVacio       = Math.round(Number(data.field2) || 0);
+        const horasProgramadas = Math.round(Number(data.field3) || 0);
+        const horasRestantes   = Math.round(Number(data.field4) || 0);
+        const totalHistorico   = Math.round(Number(data.field5) || 0);
+        const enMarcha         = (String(data.field6).trim() === "1");
+        const avviamenti       = Math.round(Number(data.field7) || 0);
 
-        // Registro de última actualización
+        // Hora del paquete
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
@@ -136,15 +137,26 @@
         }
 
         popupContent += `</div>`;
-        marker.bindPopup(popupContent).openPopup();
+
+        // CLAVE DEL CAMBIO: Si el popup ya existe, actualizamos el contenido directamente
+        if (marker.getPopup()) {
+          marker.getPopup().setContent(popupContent);
+        } else {
+          marker.bindPopup(popupContent).openPopup();
+        }
+
+        // Si el popup se cerró, volver a abrirlo
+        if (!marker.isPopupOpen()) {
+          marker.openPopup();
+        }
 
       } catch (error) {
-        console.error("Error al obtener datos de ThingSpeak:", error);
+        console.error("Error leyendo ThingSpeak:", error);
       }
     }
 
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Consulta cada 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000); // 15 segundos
   </script>
 </body>
 </html>
