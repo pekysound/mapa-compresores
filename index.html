@@ -77,44 +77,46 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    function parseEntero(val) {
-      if (val === null || val === undefined || val === "") return 0;
-      const n = Math.round(Number(val));
-      return isNaN(n) ? 0 : n;
+    function formatDecimal(val) {
+      if (val === null || val === undefined || val === "") return "0.0";
+      const n = parseFloat(val);
+      return isNaN(n) ? "0.0" : n.toFixed(1);
+    }
+
+    function formatEntero(val) {
+      if (val === null || val === undefined || val === "") return "0";
+      const n = Math.round(parseFloat(val));
+      return isNaN(n) ? "0" : n.toString();
     }
 
     async function cargarDatosThingSpeak() {
-      // Usamos la API de feeds ordenando de forma descendente para obligar a traer el ÚLTIMO dato real enviado
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&_=${Date.now()}`;
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&_nocache=${Date.now()}`;
 
       try {
-        const response = await fetch(url, { cache: "no-cache" });
+        const response = await fetch(url, { cache: "no-store" });
         const json = await response.json();
 
-        if (!json.feeds || json.feeds.length === 0) {
-          console.error("Sin datos en ThingSpeak");
-          return;
-        }
+        if (!json.feeds || json.feeds.length === 0) return;
 
         const data = json.feeds[0];
 
-        // Mapeo directo y redondeado a enteros
-        const horasCarico      = parseEntero(data.field1);
-        const horasVacio       = parseEntero(data.field2);
-        const horasProgramadas = parseEntero(data.field3);
-        const horasRestantes   = parseEntero(data.field4);
-        const totalHistorico   = parseEntero(data.field5);
-        const enMarcha         = (String(data.field6).trim() === "1");
-        const avviamenti       = parseEntero(data.field7);
+        // Mapeo exacto segun los datos que devuelve tu ThingSpeak:
+        const horasCarico      = formatDecimal(data.field1);  // Muestra por ej "0.8"
+        const horasVacio       = formatDecimal(data.field2);  // Muestra por ej "0.3"
+        const horasProgramadas = formatEntero(data.field3);   // Muestra "1000"
+        const horasRestantes   = formatDecimal(data.field4);  // Muestra "999.6"
+        const totalHistorico   = formatDecimal(data.field5);  // Muestra "1.2"
+        const enMarcha         = (String(data.field6).trim() === "1"); // True si es 1
+        const avviamenti       = formatEntero(data.field7);   // Muestra "57"
 
-        // Hora del envío
+        // Hora del envío del PLC
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (horasRestantes <= 0);
+        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
 
         let popupContent = `
           <div class="popup-card">
@@ -151,14 +153,14 @@
 
         popupContent += `</div>`;
 
-        // Se asigna y fuerza la actualización en la ventana del mapa
+        // Actualizamos directamente la ventana del marcador
         marker.bindPopup(popupContent);
         if (!marker.isPopupOpen()) {
           marker.openPopup();
         }
 
       } catch (error) {
-        console.error("Error leyendo ThingSpeak:", error);
+        console.error("Error al obtener datos de ThingSpeak:", error);
       }
     }
 
