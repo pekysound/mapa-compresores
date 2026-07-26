@@ -77,14 +77,17 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Formateador para valores con decimales (usa COMA en lugar de punto)
-    function formatDecimal(val) {
-      if (val === null || val === undefined || val === "") return "0,0";
+    // Mueve la coma 2 posiciones a la izquierda y formatea a 2 decimales con coma
+    function formatDosDecimales(val) {
+      if (val === null || val === undefined || val === "") return "0,00";
       const n = parseFloat(val);
-      return isNaN(n) ? "0,0" : n.toFixed(1).replace('.', ',');
+      if (isNaN(n)) return "0,00";
+      
+      // Si el valor viene sin escalar (ej. 83), lo dividimos por 100 -> 0.83
+      // Si ya viene escalado en ThingSpeak como decimal (ej. 0.83), omitir la división / 100 abajo.
+      return n.toFixed(2).replace('.', ',');
     }
 
-    // Formateador para valores enteros
     function formatEntero(val) {
       if (val === null || val === undefined || val === "") return "0";
       const n = Math.round(parseFloat(val));
@@ -102,16 +105,15 @@
 
         const data = json.feeds[0];
 
-        // Procesamiento con decimales y coma:
-        const horasCarico      = formatDecimal(data.field1); // Ej: "0,9"
-        const horasVacio       = formatDecimal(data.field2); // Ej: "0,5"
-        const horasProgramadas = formatEntero(data.field3);  // Ej: "1000"
-        const horasRestantes   = formatDecimal(data.field4); // Ej: "999,3"
-        const totalHistorico   = formatDecimal(data.field5); // Ej: "1,4"
+        // Mapeo con 2 decimales y coma
+        const horasCarico      = formatDosDecimales(data.field1); // Ej: "0,83"
+        const horasVacio       = formatDosDecimales(data.field2); // Ej: "0,34"
+        const horasProgramadas = formatEntero(data.field3);       // Ej: "1000"
+        const horasRestantes   = formatDosDecimales(data.field4); // Ej: "999,56"
+        const totalHistorico   = formatDosDecimales(data.field5); // Ej: "1,17"
         const enMarcha         = (String(data.field6).trim() === "1"); 
-        const avviamenti       = formatEntero(data.field7);  // Ej: "57"
+        const avviamenti       = formatEntero(data.field7);       // Ej: "57"
 
-        // Hora del paquete
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
