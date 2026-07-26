@@ -81,21 +81,21 @@
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
     marker.bindPopup("<div class='popup-card'>Caricamento dati...</div>");
 
-    // Convierte horas decimales reales a formato legible "0h 42m"
+    // Convierte horas decimales a formato limpio con espacios (ej. "0 : 00" o "1 : 15")
     function formatHorasMinutos(val) {
-      if (val === null || val === undefined || val === "") return "0h 00m";
+      if (val === null || val === undefined || val === "") return "0 : 00";
       const horasDecimales = parseFloat(val);
-      if (isNaN(horasDecimales)) return "0h 00m";
+      if (isNaN(horasDecimales)) return "0 : 00";
 
       const horas = Math.floor(horasDecimales);
       const minutos = Math.round((horasDecimales - horas) * 60);
 
       if (minutos === 60) {
-        return `${horas + 1}h 00m`;
+        return `${horas + 1} : 00`;
       }
 
       const minStr = minutos < 10 ? `0${minutos}` : `${minutos}`;
-      return `${horas}h ${minStr}m`;
+      return `${horas} : ${minStr}`;
     }
 
     function formatEntero(val) {
@@ -165,7 +165,6 @@
 
         popupContent += `</div>`;
 
-        // Actualizamos el contenido dinámicamente sin cerrar el popup si ya está abierto
         marker.setPopupContent(popupContent);
 
       } catch (error) {
@@ -173,7 +172,6 @@
       }
     }
 
-    // Carga inicial y bucle de actualización cada 15 segundos
     cargarDatosThingSpeak();
     setInterval(cargarDatosThingSpeak, 15000);
   </script>
