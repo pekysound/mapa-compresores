@@ -77,14 +77,14 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
-    // Formateador para valores con decimales (Horas acumuladas)
+    // Formateador para valores con decimales (usa COMA en lugar de punto)
     function formatDecimal(val) {
-      if (val === null || val === undefined || val === "") return "0.0";
+      if (val === null || val === undefined || val === "") return "0,0";
       const n = parseFloat(val);
-      return isNaN(n) ? "0.0" : n.toFixed(1);
+      return isNaN(n) ? "0,0" : n.toFixed(1).replace('.', ',');
     }
 
-    // Formateador para valores enteros (Contadores o Ciclos)
+    // Formateador para valores enteros
     function formatEntero(val) {
       if (val === null || val === undefined || val === "") return "0";
       const n = Math.round(parseFloat(val));
@@ -102,14 +102,14 @@
 
         const data = json.feeds[0];
 
-        // Procesamiento adaptado al tipo de dato real:
-        const horasCarico      = formatDecimal(data.field1); // Horas de Carga
-        const horasVacio       = formatDecimal(data.field2); // Horas de Vacío
-        const horasProgramadas = formatEntero(data.field3);  // Ciclo Programado
-        const horasRestantes   = formatDecimal(data.field4); // Tiempo Mantenimiento
-        const totalHistorico   = formatDecimal(data.field5); // Horas Totales
+        // Procesamiento con decimales y coma:
+        const horasCarico      = formatDecimal(data.field1); // Ej: "0,9"
+        const horasVacio       = formatDecimal(data.field2); // Ej: "0,5"
+        const horasProgramadas = formatEntero(data.field3);  // Ej: "1000"
+        const horasRestantes   = formatDecimal(data.field4); // Ej: "999,3"
+        const totalHistorico   = formatDecimal(data.field5); // Ej: "1,4"
         const enMarcha         = (String(data.field6).trim() === "1"); 
-        const avviamenti       = formatEntero(data.field7);  // Arrankes / Avviamenti
+        const avviamenti       = formatEntero(data.field7);  // Ej: "57"
 
         // Hora del paquete
         let horaUltimoEnvio = "Sconosciuto";
@@ -118,7 +118,7 @@
           horaUltimoEnvio = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         }
 
-        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
+        const requiereMantenimiento = (parseFloat(data.field4 || 0) <= 0);
 
         let popupContent = `
           <div class="popup-card">
