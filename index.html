@@ -103,11 +103,11 @@
     }
 
     async function cargarDatosThingSpeak() {
-      // Añadimos _t para evitar cualquier tipo de caché del navegador o red
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&_t=${Date.now()}`;
+      // Forzamos la descarga sin caché sumando un parámetro temporal único
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&api_key=&rand=${Math.random()}`;
 
       try {
-        const response = await fetch(url, { cache: "no-store" });
+        const response = await fetch(url, { cache: 'reload', headers: { 'Pragma': 'no-cache' } });
         const json = await response.json();
 
         if (!json.feeds || json.feeds.length === 0) return;
@@ -122,7 +122,6 @@
         const enMarcha         = (String(data.field6).trim() === "1"); 
         const avviamenti       = formatEntero(data.field7);
 
-        // Valor crudo directo de field2 para diagnóstico
         const valorCrudoVacio = data.field2 || "0";
 
         let horaUltimoEnvio = "Sconosciuto";
@@ -154,8 +153,8 @@
             </table>
 
             <div class="last-packet">
-              Aggiornamento: <strong>${horaUltimoEnvio}</strong><br>
-              Valor bruto Vuoto (F2): <code>${valorCrudoVacio}</code>
+              Servidor TS: <strong>${horaUltimoEnvio}</strong><br>
+              Field 2 Bruto: <code>${valorCrudoVacio}</code>
             </div>
         `;
 
@@ -179,7 +178,6 @@
       }
     }
 
-    cargarDatosThingScripts = cargarDatosThingSpeak;
     cargarDatosThingSpeak();
     setInterval(cargarDatosThingSpeak, 15000);
   </script>
