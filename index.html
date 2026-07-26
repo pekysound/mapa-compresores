@@ -120,22 +120,30 @@
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // Marker con Popup persistente aperto di default
+    // Contenido inicial mientras carga
+    const initialContent = `
+      <div class="card-title">RMF MAGLIANO ALPI</div>
+      <div style="text-align: center; padding: 10px; color: #64748b; font-size: 13px;">
+        Caricamento dati...
+      </div>
+    `;
+
+    // Marker con Popup persistente abierto inmediatamente al cargar
     const marker = L.marker([44.4589, 7.8012]).addTo(map);
-    const popup = L.popup({ autoClose: false, closeOnClick: false });
+    marker.bindPopup(initialContent, { autoClose: false, closeOnClick: false }).openPopup();
 
     async function cargarDatosCompressore() {
       try {
-        // Evita el caché del navegador agregando parámetro único con timestamp
+        // Evita la caché agregando parámetro de tiempo único
         const timestamp = new Date().getTime();
         const res = await fetch(`${URL_THINGSPEAK}&_nocache=${timestamp}`, { cache: "no-store" });
         
-        if (!res.ok) throw new Error("Error en respuesta de red");
+        if (!res.ok) throw new Error("Error en la red");
 
         const data = await res.json();
 
         // -----------------------------------------------------------
-        // FORMATEO ESTRICTO A NÚMEROS ENTEROS (Math.round)
+        // CONVERSIÓN Y REDONDEO ESTRICTO A ENTEROS (Math.round)
         // -----------------------------------------------------------
         const minutosCarga       = Math.round(parseFloat(data.field1) || 0);
         const minutosVacio       = Math.round(parseFloat(data.field2) || 0);
@@ -191,14 +199,10 @@
           </div>
         `;
 
-        // Bind inicial o actualización de contenido sin recrear la ventana
-        if (!marker.getPopup()) {
-          marker.bindPopup(popupContent).openPopup();
-        } else {
-          marker.setPopupContent(popupContent);
-          if (!map.hasLayer(marker.getPopup())) {
-            marker.openPopup();
-          }
+        // Actualiza el contenido del popup sin cerrar la ventana
+        marker.setPopupContent(popupContent);
+        if (!map.hasLayer(marker.getPopup())) {
+          marker.openPopup();
         }
 
       } catch (err) {
@@ -206,7 +210,7 @@
       }
     }
 
-    // Ejecuta la primera carga y programa la actualización automática cada 15 segundos
+    // Carga inicial y refresco automático cada 15 segundos
     cargarDatosCompressore();
     setInterval(cargarDatosCompressore, 15000);
   </script>
