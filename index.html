@@ -77,24 +77,37 @@
 
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
 
+    function parseEntero(val) {
+      if (val === null || val === undefined || val === "") return 0;
+      const n = Math.round(Number(val));
+      return isNaN(n) ? 0 : n;
+    }
+
     async function cargarDatosThingSpeak() {
-      // Forzamos al servidor a saltarse la caché del navegador
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json?nocache=${new Date().getTime()}`;
+      // Usamos la API de feeds ordenando de forma descendente para obligar a traer el ÚLTIMO dato real enviado
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=1&_=${Date.now()}`;
 
       try {
-        const response = await fetch(url, { cache: "no-store" });
-        const data = await response.json();
+        const response = await fetch(url, { cache: "no-cache" });
+        const json = await response.json();
 
-        // Conversión a enteros limpios
-        const horasCarico      = Math.round(Number(data.field1) || 0);
-        const horasVacio       = Math.round(Number(data.field2) || 0);
-        const horasProgramadas = Math.round(Number(data.field3) || 0);
-        const horasRestantes   = Math.round(Number(data.field4) || 0);
-        const totalHistorico   = Math.round(Number(data.field5) || 0);
+        if (!json.feeds || json.feeds.length === 0) {
+          console.error("Sin datos en ThingSpeak");
+          return;
+        }
+
+        const data = json.feeds[0];
+
+        // Mapeo directo y redondeado a enteros
+        const horasCarico      = parseEntero(data.field1);
+        const horasVacio       = parseEntero(data.field2);
+        const horasProgramadas = parseEntero(data.field3);
+        const horasRestantes   = parseEntero(data.field4);
+        const totalHistorico   = parseEntero(data.field5);
         const enMarcha         = (String(data.field6).trim() === "1");
-        const avviamenti       = Math.round(Number(data.field7) || 0);
+        const avviamenti       = parseEntero(data.field7);
 
-        // Hora del paquete
+        // Hora del envío
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
           const d = new Date(data.created_at);
@@ -138,14 +151,8 @@
 
         popupContent += `</div>`;
 
-        // CLAVE DEL CAMBIO: Si el popup ya existe, actualizamos el contenido directamente
-        if (marker.getPopup()) {
-          marker.getPopup().setContent(popupContent);
-        } else {
-          marker.bindPopup(popupContent).openPopup();
-        }
-
-        // Si el popup se cerró, volver a abrirlo
+        // Se asigna y fuerza la actualización en la ventana del mapa
+        marker.bindPopup(popupContent);
         if (!marker.isPopupOpen()) {
           marker.openPopup();
         }
@@ -156,7 +163,7 @@
     }
 
     cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // 15 segundos
+    setInterval(cargarDatosThingSpeak, 15000);
   </script>
 </body>
 </html>
