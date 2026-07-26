@@ -3,47 +3,101 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telemetria Compressori - RMF Magliano Alpi</title>
-  
+  <title>Monitoraggio Compressori - RMF Magliano Alpi</title>
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
   <style>
-    body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-    #map { width: 100vw; height: 100vh; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-    /* Estilos del Popup */
-    .popup-card { min-width: 250px; font-size: 13px; line-height: 1.5; }
-    .popup-header {
-      font-size: 16px; font-weight: bold;
-      border-bottom: 2px solid #007bff;
-      padding-bottom: 5px; margin-bottom: 8px; color: #333;
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
-    .badge {
-      display: inline-block; padding: 3px 8px;
-      border-radius: 12px; font-size: 11px; font-weight: bold;
-      color: white; margin-bottom: 8px;
+
+    #map {
+      width: 100%;
+      height: 100vh;
     }
-    .status-marcha { background-color: #28a745; }
-    .status-parado { background-color: #6c757d; }
-    
-    /* Alerta visual de Manutenzione */
-    .alerta-mantenimiento {
-      background-color: #dc3545; color: white;
-      padding: 8px; border-radius: 5px;
-      font-weight: bold; text-align: center;
+
+    /* Estilos del PopUp de Leaflet */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      padding: 4px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    }
+
+    .leaflet-popup-content {
+      margin: 14px;
+      min-width: 260px;
+    }
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a202c;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .status-online {
+      background-color: #e6fffa;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .status-offline {
+      background-color: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .data-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      font-size: 14px;
+      color: #4a5568;
+    }
+
+    .data-row.bold {
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .data-value {
+      font-weight: 700;
+      color: #000;
+    }
+
+    .divider {
+      height: 1px;
+      background-color: #e2e8f0;
+      margin: 10px 0;
+    }
+
+    .last-update {
+      font-size: 11px;
+      color: #a0aec0;
+      text-align: center;
       margin-top: 10px;
-      animation: parpadeo 1s infinite alternate;
     }
-
-    @keyframes parpadeo {
-      from { opacity: 1; }
-      to { opacity: 0.4; }
-    }
-
-    .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-    .data-table td { padding: 3px 0; }
-    .data-table td:last-child { text-align: right; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -52,80 +106,94 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
   <script>
-    // --- CONFIGURACIÓN ---
-    const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
-    const LATITUD = 44.4601;   // Magliano Alpi, Italia
-    const LONGITUD = 7.8016;
-    const CHANNEL_ID = "3425995"; 
+    // -----------------------------------------------------------
+    // CONFIGURACIÓN DE THINGSPEAK
+    // -----------------------------------------------------------
+    const CHANNEL_ID = 'TU_CHANNEL_ID'; // Reemplazar con ID de ThingSpeak si aplica
+    const READ_API_KEY = 'TU_READ_API_KEY'; // Reemplazar si es canal privado
+    const URL_THINGSPEAK = `https://api.thingspeak.com/channels/2290466/feeds/last.json`;
 
-    // Inicializar mapa
-    const map = L.map('map').setView([LATITUD, LONGITUD], 13);
+    // Inicializar Mapa centrado en Magliano Alpi
+    const map = L.map('map').setView([44.4578, 7.8042], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
+    let marker = L.marker([44.4578, 7.8042]).addTo(map);
 
-    async function cargarDatosThingSpeak() {
-      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json`;
-
+    async function cargarDatosCompressore() {
       try {
-        const response = await fetch(url);
-        const data = await response.json();
+        const res = await fetch(URL_THINGSPEAK);
+        const data = await res.json();
 
-        const horasCarga = parseFloat(data.field1 || 0).toFixed(0);
-        const horasVacio = parseFloat(data.field2 || 0).toFixed(0);
+        // -----------------------------------------------------------
+        // FORMATEO DE DATOS - ENTEROS SIN DECIMALES (.toFixed(0))
+        // -----------------------------------------------------------
+        const minutosCarga = parseFloat(data.field1 || 0).toFixed(0);
+        const minutosVacio = parseFloat(data.field2 || 0).toFixed(0);
         const seteoMantenimiento = parseFloat(data.field3 || 1500).toFixed(0);
-        const horasRestantes = parseFloat(data.field4 || 0).toFixed(0);
-        const horasTotales = parseFloat(data.field5 || 0).toFixed(0);
-        
-        // Estado y arranques (field6 y field7)
-        const estadoCod = data.field6 || "1";
-        const estaEnMarcha = (estadoCod === "1" || estadoCod.toLowerCase() === "marcha" || estadoCod.toLowerCase() === "in funzione");
-        const cantidadArranques = data.field7 || "0";
+        const horasRestantes = parseFloat(data.field4 || 0).toFixed(1);
+        const horasTotales = parseFloat(data.field5 || 0).toFixed(1);
+        const enMarcha = data.field6 === "1";
+        const avviamenti = parseInt(data.field7 || 0);
 
-        const requiereMantenimiento = (parseFloat(horasRestantes) <= 0);
+        const popupContent = `
+          <div class="card-title">RMF MAGLIANO ALPI</div>
+          
+          <span class="status-badge ${enMarcha ? 'status-online' : 'status-offline'}">
+            ● ${enMarcha ? 'In Funzione' : 'Fermo'}
+          </span>
 
-        let popupContent = `
-          <div class="popup-card">
-            <div class="popup-header">${NOMBRE_CLIENTE}</div>
-            
-            <span class="badge ${estaEnMarcha ? 'status-marcha' : 'status-parado'}">
-              ${estaEnMarcha ? '🟢 In Funzione' : '🔴 Fermo'}
-            </span>
+          <div class="data-row">
+            <span>Minuti Carico:</span>
+            <span class="data-value">${minutosCarga}</span>
+          </div>
 
-            <table class="data-table">
-              <tr><td>Ore Carico:</td><td>${horasCarga}</td></tr>
-              <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
-              <tr><td><strong>Totale Ore:</strong></td><td><strong>${horasTotales}</strong></td></tr>
-              <tr><td colspan="2"><hr style="border: 0.5px solid #eee;"></td></tr>
-              <tr><td>Seteo Manutenzione:</td><td>${seteoMantenimiento}</td></tr>
-              <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
-              <tr><td>Avviamenti:</td><td>${cantidadArranques}</td></tr>
-            </table>
+          <div class="data-row">
+            <span>Minuti Vuoto:</span>
+            <span class="data-value">${minutosVacio}</span>
+          </div>
+
+          <div class="data-row bold">
+            <span>Totale Ore:</span>
+            <span class="data-value">${horasTotales}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="data-row">
+            <span>Seteo Manutenzione:</span>
+            <span class="data-value">${seteoMantenimiento}</span>
+          </div>
+
+          <div class="data-row">
+            <span>Tempo Manutenzione:</span>
+            <span class="data-value">${horasRestantes}</span>
+          </div>
+
+          <div class="data-row">
+            <span>Avviamenti:</span>
+            <span class="data-value">${avviamenti}</span>
+          </div>
+
+          <div class="last-update">
+            Aggiornato: ${new Date(data.created_at).toLocaleTimeString()}
+          </div>
         `;
 
-        if (requiereMantenimiento) {
-          popupContent += `
-            <div class="alerta-mantenimiento">
-              ⚠️ MANUTENZIONE RICHIESTA!
-            </div>
-          `;
-        }
-
-        popupContent += `</div>`;
         marker.bindPopup(popupContent).openPopup();
 
-      } catch (error) {
-        console.error("Errore nel recupero dati da ThingSpeak:", error);
+      } catch (err) {
+        console.error("Errore nel caricamento dei dati:", err);
       }
     }
 
-    cargarDatosThingSpeak();
-    setInterval(cargarDatosThingSpeak, 15000); // Refresca cada 15 segundos
+    // Carga inicial y refresco cada 30 segundos
+    cargarDatosCompressore();
+    setInterval(cargarDatosCompressore, 30000);
   </script>
 </body>
 </html>
