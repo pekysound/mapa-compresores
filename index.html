@@ -7,11 +7,11 @@
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
+  
   <style>
     body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
     #map { width: 100vw; height: 100vh; }
-
+  
     /* Estilos del Popup */
     .popup-card { min-width: 280px; font-size: 13px; line-height: 1.5; }
     .popup-header {
@@ -66,7 +66,7 @@
   <script>
     // --- CONFIGURACIÓN ---
     const NOMBRE_CLIENTE = "RMF MAGLIANO ALPI";
-    const LATITUD = 44.4601;   // Magliano Alpi, Italia
+    const LATITUD = 44.4601;  // Magliano Alpi, Italia
     const LONGITUD = 7.8016;
     const CHANNEL_ID = "3425995"; 
 
@@ -74,14 +74,15 @@
     const map = L.map('map').setView([LATITUD, LONGITUD], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '© OpenStreetMap'
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
     }).addTo(map);
 
     // Creamos el marcador y le asignamos un popup inicial vacío
     const marker = L.marker([LATITUD, LONGITUD]).addTo(map);
     marker.bindPopup("<div class='popup-card'>Caricamento dati...</div>");
 
-    // Convierte horas decimales a formato limpio con espacios (ej. "0 : 00" o "1500 : 00")
+    // Convierte horas decimales a formato limpio HH : MM
     function formatHorasMinutos(val) {
       if (val === null || val === undefined || val === "") return "0 : 00";
       const horasDecimales = parseFloat(val);
@@ -101,7 +102,16 @@
     function formatEntero(val) {
       if (val === null || val === undefined || val === "") return "0";
       const n = Math.round(parseFloat(val));
-      return isNaN(n) ? "0" : n.toString() + " : 00";
+      return isNaN(n) ? "0" : n.toString();
+    }
+
+    // Formatear presión (Field 8)
+    function formatPresion(val) {
+      if (val === null || val === undefined || val === "") return "0.000 bar";
+      const p = parseFloat(val);
+      if (isNaN(p)) return "0.000 bar";
+      if (p < 0) return "<span style='color: #dc3545;'>ERR (Sensor)</span>";
+      return p.toFixed(3) + " bar";
     }
 
     async function cargarDatosThingSpeak() {
@@ -115,14 +125,15 @@
 
         const data = json.feeds[0];
 
-        const horasCarico      = formatHorasMinutos(data.field1);
-        const horasVacio       = formatHorasMinutos(data.field2);
-        const horasProgramadas = formatEntero(data.field3);
-        const horasRestantes   = formatHorasMinutos(data.field4);
-        const totalHistorico   = formatHorasMinutos(data.field5);
-        const enMarcha         = (String(data.field6).trim() === "1"); 
-        const avviamenti       = formatEntero(data.field7).replace(" : 00", ""); // Solo el número entero para los arranques
-        const valorCrudoVacio  = data.field2 || "0";
+        // Mapeo adaptado exactamente a tu último código de Arduino:
+        const horasCarico      = formatHorasMinutos(data.field1); // Field 1: Ore Carico
+        const horasVacio       = formatHorasMinutos(data.field2); // Field 2: Ore Vuoto
+        const horasProgramadas = formatHorasMinutos(data.field3); // Field 3: Ciclo Programmato
+        const horasRestantes   = formatHorasMinutos(data.field4); // Field 4: Tempo Manutenzione
+        const totalHistorico   = formatHorasMinutos(data.field5); // Field 5: Ore Totali
+        const enMarcha         = (String(data.field6).trim() === "1"); // Field 6: Estado Operativo
+        const avviamenti       = formatEntero(data.field7);       // Field 7: Avviamenti
+        const presionActual    = formatPresion(data.field8);      // Field 8: Presión
 
         let horaUltimoEnvio = "Sconosciuto";
         if (data.created_at) {
@@ -141,6 +152,8 @@
               </span>
             </div>
             <table class="data-table">
+              <tr><td>Pressione Attuale:</td><td>${presionActual}</td></tr>
+              <tr><td colspan="2"><hr style="border: 0.5px solid #eee; margin: 4px 0;"></td></tr>
               <tr><td>Ore Carico:</td><td>${horasCarico}</td></tr>
               <tr><td>Ore Vuoto:</td><td>${horasVacio}</td></tr>
               <tr><td><strong>Ore Totali:</strong></td><td><strong>${totalHistorico}</strong></td></tr>
@@ -150,8 +163,7 @@
               <tr><td>Tempo Manutenzione:</td><td>${horasRestantes}</td></tr>
             </table>
             <div class="last-packet">
-              Servidor TS: <strong>${horaUltimoEnvio}</strong><br>
-              Field 2 Bruto: <code>${valorCrudoVacio}</code>
+              Servidor TS: <strong>${horaUltimoEnvio}</strong>
             </div>
         `;
 
