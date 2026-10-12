@@ -107,9 +107,9 @@
 
     // Formatear presión (Field 8)
     function formatPresion(val) {
-      if (val === null || val === undefined || val === "") return "0.000 bar";
+      if (val === null || val === undefined || val === "") return "0.0 bar"; //                          aca cambie x 0,000
       const p = parseFloat(val);
-      if (isNaN(p)) return "0.000 bar";
+      if (isNaN(p)) return "0.0 bar";//                                                                  aca cambie x 0,000
       if (p < 0) return "<span style='color: #dc3545;'>ERR (Sensor)</span>";
       return p.toFixed(3) + " bar";
     }
